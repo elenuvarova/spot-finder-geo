@@ -73,6 +73,7 @@ export default function TopZones({
         type="button"
         className="top-zones__toggle"
         aria-expanded={expanded}
+        aria-label={expanded ? 'Collapse top opportunities' : 'Expand top opportunities'}
         onClick={() => setExpanded((v) => !v)}
       >
         <span className="top-zones__title">
@@ -80,7 +81,7 @@ export default function TopZones({
           <span className="top-zones__count">{top.length}</span>
         </span>
         <span className="top-zones__chevron" aria-hidden="true">
-          {expanded ? '▾' : '▸'}
+          {expanded ? '×' : '+'}
         </span>
       </button>
 

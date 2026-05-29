@@ -941,12 +941,12 @@ body {
     display: none;
   }
 
-  /* Sit above the collapsed Top-opportunities bar (pinned at bottom:12) so the
-     two never overlap; when the leaderboard expands it covers this anyway. */
+  /* Legend sits at the very bottom; the Top-opportunities card is stacked above
+     it (see .top-zones bottom below), so the leaderboard reads first. */
   .legend {
     width: calc(100vw - 24px);
     left: 12px;
-    bottom: 72px;
+    bottom: 12px;
     padding: 12px 14px;
   }
 
@@ -968,12 +968,16 @@ body {
     max-height: 80dvh;
   }
 
-  /* Top-zones folds to a full-width strip; capped to the bottom half so it can
-     never push the page off-screen even when expanded. */
-  .top-zones {
+  /* Top-zones folds to a full-width strip, stacked ABOVE the legend (legend is
+     117px tall at bottom:12, so sit at 12+117+8). Capped to the bottom half so
+     it can never push the page off-screen even when expanded (it grows upward,
+     away from the legend). */
+  /* .app prefix raises specificity above the base .top-zones rule, which is
+     defined later in the file and would otherwise win and re-pin it bottom-right. */
+  .app .top-zones {
     left: 12px;
     right: 12px;
-    bottom: 12px;
+    bottom: 137px;
     width: auto;
     max-width: none;
     max-height: 50vh;
@@ -981,7 +985,7 @@ body {
     overflow: hidden;
   }
 
-  .top-zones__list {
+  .app .top-zones__list {
     max-height: 40vh;
     max-height: 40dvh;
   }
@@ -1000,14 +1004,9 @@ body {
     display: none;
   }
 
-  /* Expanded leaderboard owns the lower screen — drop the legend that otherwise
-     sits just above its collapsed bar. */
-  .app:has(.top-zones.is-open) .legend {
-    display: none;
-  }
-
-  /* Full-width Compare sheet with a horizontally scrollable table. */
-  .compare {
+  /* Full-width Compare sheet with a horizontally scrollable table. (.app prefix
+     beats the later-defined base .compare rule — same ordering caveat as above.) */
+  .app .compare {
     left: 0;
     right: 0;
     bottom: 0;
@@ -1165,9 +1164,24 @@ body {
   padding: 1px 8px;
 }
 
+/* Clear open/close affordance: a "+" badge when collapsed, "×" when expanded. */
 .top-zones__chevron {
-  color: var(--ink-faint);
-  font-size: 12px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #f0f2f4;
+  color: var(--ink-soft);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.top-zones__toggle:hover .top-zones__chevron {
+  background: #e4e7eb;
+  color: var(--ink);
 }
 
 .top-zones__toggle:focus-visible {
