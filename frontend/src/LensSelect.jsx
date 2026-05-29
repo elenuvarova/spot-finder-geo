@@ -26,9 +26,9 @@ export default function LensSelect({ lens, onChange }) {
         ))}
       </select>
       <p className="lens-select__note">
-        Re-ranks by <em>documented</em> diet coverage. The{' '}
+        Re-ranks by <em>documented</em> diet coverage — the{' '}
         {active ? <code>{active.tag}</code> : <code>diet:*</code>} tag undercounts
-        reality — a gap means no <strong>listed</strong> offering, not none.
+        reality.
       </p>
     </div>
   );

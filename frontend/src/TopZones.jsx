@@ -68,7 +68,7 @@ export default function TopZones({
   const maxScore = top[0].score || 1;
 
   return (
-    <div className="top-zones">
+    <div className={`top-zones${expanded ? ' is-open' : ''}`}>
       <button
         type="button"
         className="top-zones__toggle"

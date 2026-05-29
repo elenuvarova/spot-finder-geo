@@ -2,6 +2,8 @@
 // points mapped inside the selected sector, grouped by kind, so the choropleth
 // score is auditable rather than a black box.
 
+import { useState } from 'react';
+
 const DIET_CHIPS = [
   { key: 'diet_vegan', emoji: '🌱', label: 'vegan' },
   { key: 'diet_vegetarian', emoji: '🥗', label: 'vegetarian' },
@@ -68,6 +70,10 @@ function dietChips(point) {
 }
 
 export default function EstablishmentsList({ points, type }) {
+  // Which groups are expanded to their full list (keyed by group id).
+  const [open, setOpen] = useState({});
+  const toggle = (id) => setOpen((o) => ({ ...o, [id]: !o[id] }));
+
   if (!points || points.length === 0) {
     return (
       <p className="establishments__empty">
@@ -95,11 +101,15 @@ export default function EstablishmentsList({ points, type }) {
         .map(({ group, items }) => {
           const isFocus = group.id === focusGroup;
           const cap = isFocus ? FOCUS_MAX_ITEMS : OTHER_MAX_ITEMS;
+          const isOpen = !!open[group.id];
           const named = items.filter((p) => p.name);
-          const shown = named.slice(0, cap);
-          // Everything not shown as a named chip — folds unnamed places and the
-          // overflow of named places into one honest "+N more" count.
-          const remaining = items.length - shown.length;
+          const unnamed = items.length - named.length;
+          // Expanded shows every named place; collapsed shows up to the cap.
+          const shown = isOpen ? named : named.slice(0, cap);
+          const namedHidden = named.length - shown.length;
+          // Collapsed "+N more" folds the hidden named places AND the unnamed
+          // ones into one honest count; tapping it reveals the full list.
+          const collapsedMore = namedHidden + unnamed;
           return (
             <div
               key={group.id}
@@ -121,17 +131,32 @@ export default function EstablishmentsList({ points, type }) {
                     {dietChips(point)}
                   </span>
                 ))}
-                {/* A group with zero named places reads as a single ghost chip
-                    instead of a bare "+N more" with nothing above it. */}
-                {shown.length === 0 && remaining > 0 && (
+                {/* Unnamed places: shown as a count when expanded, or when the
+                    group has no named places to list at all. */}
+                {unnamed > 0 && (isOpen || named.length === 0) && (
                   <span className="establishments__item establishments__item--ghost">
-                    {remaining} unnamed
+                    {unnamed} unnamed
                   </span>
                 )}
-                {shown.length > 0 && remaining > 0 && (
-                  <span className="establishments__item establishments__item--ghost">
-                    +{remaining} more
-                  </span>
+                {/* Clickable reveal: only when there are named places to expand
+                    into (a purely-unnamed group just shows its count above). */}
+                {!isOpen && named.length > 0 && collapsedMore > 0 && (
+                  <button
+                    type="button"
+                    className="establishments__more"
+                    onClick={() => toggle(group.id)}
+                  >
+                    +{collapsedMore} more
+                  </button>
+                )}
+                {isOpen && (named.length > cap || unnamed > 0) && (
+                  <button
+                    type="button"
+                    className="establishments__more"
+                    onClick={() => toggle(group.id)}
+                  >
+                    Show fewer
+                  </button>
                 )}
               </div>
             </div>
