@@ -14,6 +14,7 @@ from typing import Literal
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from explain import explain
@@ -128,3 +129,15 @@ async def post_explain(req: ExplainRequest) -> dict:
             "explanation": build_template_explanation(req.type, req.vegan, req.props),
             "source": "template",
         }
+
+
+# --- Serve the built frontend (single-service deploy) -----------------------
+# In the Docker image the built frontend is copied to ./static. When present,
+# mount it at "/" so ONE Render service serves both the API and the UI from the
+# same origin. Mounted AFTER the API routes above, so /health and /api/* always
+# take precedence. Absent in local dev (Vite serves the frontend), where the API
+# simply runs standalone.
+_static_dir = Path(__file__).parent / "static"
+if _static_dir.is_dir():
+    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="frontend")
+    logger.info("Serving built frontend from %s", _static_dir)

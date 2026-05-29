@@ -176,21 +176,17 @@ npm run dev                               # http://localhost:5173
 
 ---
 
-## Deploy
+## Deploy — one free service on Render
 
-### Backend → Render
+The repo-root **`render.yaml`** + **`Dockerfile`** deploy everything as a **single** free web service: a multi-stage Docker build compiles the React/Vite frontend, then FastAPI serves both the API (`/api/*`, `/health`) **and** the built UI from the same origin — so there's no separate frontend host and no CORS to configure.
 
-- Deploy via the **`render.yaml`** Blueprint at the repo root (single free-tier web service, `rootDir: backend`, health check on `/health`). In Render: **New → Blueprint**, pick the **`main`** branch, leave Blueprint Path blank.
-- In the Render dashboard set the two `sync: false` secrets:
-  - **`GEMINI_API_KEY`** — enables Gemini smart mode (leave blank to stay template-only).
-  - **`FRONTEND_ORIGIN`** — your real frontend URL for CORS (comma-separated origins; avoid `*` in production).
-- Remember the free tier **sleeps**; point a keep-alive pinger at `/health` to reduce cold starts.
+1. In Render: **New → Blueprint**, connect this repo, pick the **`main`** branch, leave Blueprint Path blank (`render.yaml` is at the root). Render builds the `Dockerfile`.
+2. In the service's **Environment** tab set **`GEMINI_API_KEY`** (the `sync: false` secret) to enable Gemini smart mode — leave it unset to run template-only. (`GEMINI_MODEL` defaults to `gemini-2.5-flash-lite`.)
+3. Open the service URL — it serves the full app (map + API).
 
-### Frontend → Vercel / Netlify
-
-- Build command `npm run build`, output directory `dist` (root `frontend/`).
-- Set **`VITE_API_URL`** to your deployed Render backend URL (e.g. `https://spotfinder-api.onrender.com`).
-- It's a fully static bundle — no server, no secrets.
+Notes:
+- The free service **sleeps** after inactivity (~30–50s cold start on the first hit); point a keep-alive pinger at `/health` to reduce it. The frontend shows a loading state during wake-up.
+- Want the frontend on a CDN instead (instant loads, no cold start)? You can still deploy `frontend/` to Vercel/Netlify separately — build `npm run build`, output `dist/`, and set `VITE_API_URL` to the backend URL. The single-service setup above is the default.
 
 ---
 

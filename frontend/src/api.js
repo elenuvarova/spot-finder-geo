@@ -1,10 +1,14 @@
 // Thin API client for the SpotFinder backend.
 //
-// The base URL comes from Vite's env (VITE_API_URL); it defaults to the local
-// FastAPI server. NO API KEY is ever read or sent from the frontend — the
-// backend holds any keys and proxies the AI calls.
+// The base URL comes from Vite's env (VITE_API_URL). It DEFAULTS to '' (empty),
+// i.e. a relative same-origin base, so the production build talks to /api/* on
+// whatever host serves it — used by the single-service Render deploy where
+// FastAPI serves both the API and this built frontend. For local two-process
+// dev (Vite on :5173, backend on another port) set VITE_API_URL in a .env.local
+// (e.g. http://localhost:8001). NO API KEY is ever read or sent from the
+// frontend — the backend holds any keys and proxies the AI calls.
 
-const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+const BASE_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
 
 /**
  * Fetch the full Antwerp FeatureCollection.

@@ -1,0 +1,17 @@
+# Keep the build context small AND keep local dev files out of the image.
+# Excluding .env/.env.local is critical: otherwise the local VITE_API_URL would
+# leak into the production build and override the relative same-origin base.
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.env
+**/.env.*
+**/.DS_Store
+*.log
+.git
+.gitignore
+backend/static
+pipeline
+docs

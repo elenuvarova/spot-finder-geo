@@ -1,20 +1,18 @@
-# Render Blueprint for the SpotFinder backend.
-# Single free-tier web service, no Docker, no database.
+# Render Blueprint — ONE free service.
+# A multi-stage Docker build compiles the React/Vite frontend and then runs the
+# FastAPI backend, which serves both the API (/api/*, /health) and the built UI
+# from the same origin. No separate frontend host needed.
 services:
   - type: web
     name: spotfinder-api
-    runtime: python
+    runtime: docker
     plan: free
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     envVars:
-      - key: PYTHON_VERSION
-        value: "3.12.7"
+      # Secret — set the value in the Render dashboard (Environment tab).
+      # Leave unset to run in template-only mode (no Gemini).
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
         value: gemini-2.5-flash-lite
-      - key: FRONTEND_ORIGIN
-        sync: false

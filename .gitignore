@@ -17,6 +17,9 @@ node_modules/
 dist/
 build/
 
+# Built frontend copied into the backend image (Docker COPY target / local test).
+backend/static/
+
 # --- Environment files -----------------------------------------------------
 # Ignore real secrets, but KEEP the committed .env.example templates.
 .env

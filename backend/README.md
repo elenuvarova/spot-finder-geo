@@ -98,16 +98,22 @@ Also note the foot-traffic figure is an honest **proxy** (weighted gastro/retail
 points), not measured footfall, and the OSM `diet:vegan` tag **undercounts** the
 real vegan offering.
 
-## Deploy to Render
+## Deploy to Render (single service)
+
+The repo-root `render.yaml` + `Dockerfile` deploy ONE free web service: a
+multi-stage Docker build compiles the frontend, then this FastAPI app serves
+both the API and the built UI from the same origin (so `/api/*` is same-origin
+and no `FRONTEND_ORIGIN`/CORS setup is needed).
 
 1. Push the repo to GitHub.
-2. In Render: **New → Blueprint**, point it at this repo (branch `main`). Render reads
-   `render.yaml` at the repo root (one free web service with `rootDir: backend`,
-   build `pip install -r requirements.txt`, start `uvicorn main:app --host 0.0.0.0 --port $PORT`,
-   health check `/health`).
-3. Set the secret env vars in the dashboard:
-   - `GEMINI_API_KEY` — your key (optional; omit for template-only).
-   - `FRONTEND_ORIGIN` — your real frontend URL (e.g.
-     `https://spotfinder.vercel.app`), **not** `*`.
+2. In Render: **New → Blueprint**, point it at this repo (branch `main`). Render
+   builds the root `Dockerfile` (frontend build → Python serve), health check `/health`.
+3. Set the secret in the dashboard (**Environment** tab):
+   - `GEMINI_API_KEY` — your key (optional; omit for template-only mode).
+     `GEMINI_MODEL` defaults to `gemini-2.5-flash-lite`.
 4. The free instance sleeps after inactivity; a cron/uptime ping to `/health`
    keeps it warm.
+
+When running this backend **standalone** (the Python `uvicorn` command above,
+no `backend/static/`), it serves only the API and you point a separate frontend
+at it via `VITE_API_URL`; set `FRONTEND_ORIGIN` then for CORS.
