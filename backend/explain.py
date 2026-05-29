@@ -135,9 +135,11 @@ def build_template_explanation(type_: str, vegan: bool, props: dict) -> str:
         else:
             sentence = weak
 
-    if vegan and _num(props, "vegan_coverage") < VEGAN_LOW:
+    # Only when there is genuinely NO documented vegan offering (not merely
+    # "low"), so the note stops firing on nearly every sector.
+    if vegan and _num(props, "vegan_coverage") == 0:
         sentence += (
-            " There is almost no documented vegan offering nearby "
+            " No vegan offering is documented among the eateries here yet "
             "(the diet:vegan tag undercounts reality)."
         )
 

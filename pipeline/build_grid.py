@@ -115,7 +115,7 @@ def build_grid():
         grp = by_sector.get(code)
 
         if grp is None or len(grp) == 0:
-            n_gastro = n_retail = transit = offices = n_food = n_vegan = 0
+            n_gastro = n_retail = transit = offices = n_food = n_vegan = n_eatery = 0
             comp = {t: 0 for t in config.TYPES}
         else:
             n_gastro = int(grp["is_gastro"].sum())
@@ -123,7 +123,11 @@ def build_grid():
             transit = int(grp["is_transit"].sum())
             offices = int(grp["is_office"].sum())
             n_food = int(grp["is_food"].sum())
-            n_vegan = int((grp["is_food"] & grp["vegan"]).sum())
+            # Vegan coverage base = EATERIES (scored food types + gastro
+            # attractors like restaurants/fast_food), so vegan restaurants count.
+            eatery = grp["is_food"] | grp["is_gastro"]
+            n_eatery = int(eatery.sum())
+            n_vegan = int((eatery & grp["vegan"]).sum())
             comp = {t: int((grp["spot_type"] == t).sum()) for t in config.TYPES}
 
         traffic = (config.TRAFFIC_PROXY_WEIGHTS["gastro"] * n_gastro
@@ -150,7 +154,9 @@ def build_grid():
                     best = d
             gap[t] = best
 
-        vegan_coverage = (n_vegan / n_food) if n_food > 0 else 0.0
+        # Low-n floor: a single venue (1/1) must not read as 100% coverage, so
+        # only compute coverage once at least 3 eateries are documented here.
+        vegan_coverage = (n_vegan / n_eatery) if n_eatery >= 3 else 0.0
 
         records.append({
             "unit_id": str(code),

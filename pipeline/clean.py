@@ -121,7 +121,12 @@ def clean():
             continue
 
         is_food = spot_type is not None  # all three scored types are "food"
-        vegan = _vegan_flag(tags) if is_food else False
+        # Vegan coverage is measured over EATERIES = scored food types PLUS gastro
+        # attractors (restaurants / fast_food / ...). Keep the diet:vegan flag for
+        # any eatery so a vegan RESTAURANT counts, not only a vegan cafe (otherwise
+        # ~78% of a city's documented vegan venues are silently dropped).
+        is_eatery = is_food or ("gastro" in roles)
+        vegan = _vegan_flag(tags) if is_eatery else False
 
         # Deduplicate on coarse location + role signature.
         key = (round(lon, 6), round(lat, 6), spot_type, tuple(sorted(roles)))

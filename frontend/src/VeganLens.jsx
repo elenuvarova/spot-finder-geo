@@ -17,8 +17,9 @@ export default function VeganLens({ vegan, onChange }) {
         </span>
       </label>
       <p className="vegan-lens__note">
-        Weighs opportunity by <em>documented</em> <code>diet:vegan</code> coverage.
-        The tag undercounts reality — a "gap" means no <strong>listed</strong> vegan
+        Weighs opportunity by <em>documented</em> <code>diet:vegan</code> coverage
+        across the area's eateries (cafés, bakeries, restaurants…). The tag
+        undercounts reality — a "gap" means no <strong>listed</strong> vegan
         offering, not that there is no vegan food.
       </p>
     </div>

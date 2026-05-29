@@ -18,7 +18,7 @@ export const TYPE_LABELS = {
 
 const SIGNALS_CAVEAT = ' These are signals, not guarantees — worth checking on foot.';
 const VEGAN_NOTE =
-  ' There is almost no documented vegan offering nearby (the diet:vegan tag undercounts reality).';
+  ' No vegan offering is documented among the eateries here yet (the diet:vegan tag undercounts reality).';
 
 // Generic, type-aware "go and look" prompt. Mirror these in backend/explain.py.
 const ON_GROUND = {
@@ -108,7 +108,9 @@ export function explainTemplate(type, vegan, props = {}) {
     }
   }
 
-  if (vegan && veganCoverage < 0.2) {
+  // Only when there is genuinely NO documented vegan offering (not merely "low"),
+  // so the note stops firing on nearly every sector.
+  if (vegan && veganCoverage === 0) {
     sentence += VEGAN_NOTE;
   }
 
