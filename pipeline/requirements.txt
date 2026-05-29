@@ -1,0 +1,9 @@
+# SpotFinder OFFLINE data-pipeline dependencies.
+# Run manually on a developer machine; this pipeline is NOT deployed.
+requests
+geopandas
+shapely
+h3
+pandas
+openpyxl
+numpy
