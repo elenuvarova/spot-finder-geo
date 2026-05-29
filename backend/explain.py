@@ -32,6 +32,23 @@ TYPE_LABELS = {
     "confectionery": "confectionery",
 }
 
+# Generic, type-aware "go and look" prompt for the offline template.
+# Mirror these strings in frontend/src/explainer.js exactly.
+ON_GROUND = {
+    "cafe": (
+        " On the ground, check: peak-hour foot-traffic and how easy it is to "
+        "reach on foot or transit."
+    ),
+    "bakery": (
+        " On the ground, check: morning footfall from nearby homes and how far "
+        "people already walk for fresh bread."
+    ),
+    "confectionery": (
+        " On the ground, check: who walks past, local spending power, and how "
+        "the nearest competitors price and present themselves."
+    ),
+}
+
 CAVEAT = " These are signals, not guarantees — worth checking on foot."
 
 # Gemini REST config
@@ -71,27 +88,52 @@ def build_template_explanation(type_: str, vegan: bool, props: dict) -> str:
     income_norm = _num(props, "income_norm")
     traffic_norm = _num(props, "traffic_norm")
 
-    if gap_t >= GAP_HIGH_M and residential_norm >= HIGH:
-        sentence = (
-            f"Residential area and the nearest {label} is roughly "
-            f"{gap_t}m away — a classic catchment gap."
-        )
-    elif comp_t >= COMP_HIGH:
-        sentence = (
-            f"This zone is already crowded with {label} competitors "
-            f"— higher risk."
-        )
-    elif income_norm >= HIGH and traffic_norm >= HIGH:
-        sentence = (
-            f"Affluent foot-traffic with limited supply here "
-            f"— a strong signal for a {label}."
-        )
-    elif traffic_norm >= HIGH and comp_t < COMP_HIGH:
-        sentence = f"Plenty of movement and few {label} competitors nearby."
-    else:
-        sentence = (
-            f"Demand signals here are weak — a lower-potential zone for a {label}."
-        )
+    # Reusable rule clauses (byte-identical to frontend/src/explainer.js).
+    crowded = f"This zone is already crowded with {label} competitors — higher risk."
+    catchment_gap = (
+        f"Residential area and the nearest {label} is roughly "
+        f"{gap_t}m away — a classic catchment gap."
+    )
+    affluent_traffic = (
+        f"Affluent foot-traffic with limited supply here "
+        f"— a strong signal for a {label}."
+    )
+    movement = f"Plenty of movement and few {label} competitors nearby."
+    weak = f"Demand signals here are weak — a lower-potential zone for a {label}."
+
+    # Saturation is the dominant risk for every type, so it leads when present.
+    # Otherwise lead with the driver that matters most for this type:
+    #   bakery -> residential + proximity gap, cafe -> traffic/transit,
+    #   confectionery -> income (affluent foot-traffic).
+    if comp_t >= COMP_HIGH:
+        sentence = crowded
+    elif type_ == "bakery":
+        if gap_t >= GAP_HIGH_M and residential_norm >= HIGH:
+            sentence = catchment_gap
+        elif income_norm >= HIGH and traffic_norm >= HIGH:
+            sentence = affluent_traffic
+        elif traffic_norm >= HIGH:
+            sentence = movement
+        else:
+            sentence = weak
+    elif type_ == "confectionery":
+        if income_norm >= HIGH and traffic_norm >= HIGH:
+            sentence = affluent_traffic
+        elif gap_t >= GAP_HIGH_M and residential_norm >= HIGH:
+            sentence = catchment_gap
+        elif traffic_norm >= HIGH:
+            sentence = movement
+        else:
+            sentence = weak
+    else:  # cafe (and any unknown type) -> traffic/transit first
+        if traffic_norm >= HIGH and income_norm >= HIGH:
+            sentence = affluent_traffic
+        elif traffic_norm >= HIGH:
+            sentence = movement
+        elif gap_t >= GAP_HIGH_M and residential_norm >= HIGH:
+            sentence = catchment_gap
+        else:
+            sentence = weak
 
     if vegan and _num(props, "vegan_coverage") < VEGAN_LOW:
         sentence += (
@@ -99,52 +141,96 @@ def build_template_explanation(type_: str, vegan: bool, props: dict) -> str:
             "(the diet:vegan tag undercounts reality)."
         )
 
+    sentence += ON_GROUND.get(type_, ON_GROUND["cafe"])
     sentence += CAVEAT
     return sentence
+
+
+# Per-type lead-driver guidance the model is told to emphasise first.
+_TYPE_FOCUS = {
+    "cafe": (
+        "For a coffee shop, lead with foot-traffic and transit access — those "
+        "matter most."
+    ),
+    "bakery": (
+        "For a bakery, lead with residential density and the distance to the "
+        "nearest bakery (a proximity gap matters most)."
+    ),
+    "confectionery": (
+        "For a confectionery, lead with local income / affluence — discretionary "
+        "spending power matters most."
+    ),
+}
 
 
 def _build_prompt(type_: str, vegan: bool, props: dict) -> tuple[str, str]:
     """Return (system_instruction, user_text) for the Gemini call."""
     label = _label(type_)
+    focus = _TYPE_FOCUS.get(type_, _TYPE_FOCUS["cafe"])
 
     system = (
-        f"You help a non-analyst business owner choose where to open a new "
-        f"{label}. You are given neighborhood metrics for one map cell. In 2-3 "
-        f"short, plain-language sentences with NO jargon and NO raw numbers "
-        f"dump, explain why this zone is or is not promising for a {label}. "
-        f"Finish by reminding that these are signals, not guarantees — worth "
-        f"checking in person."
+        "You help a non-analyst business owner judge whether one neighbourhood "
+        f"is promising for a new {label}. You are given a few metrics for one "
+        "map cell.\n"
+        "\n"
+        "HOW TO READ THE METRICS — read carefully:\n"
+        "- Every metric scored 0-100 (or 0..1) is a RELATIVE signal: it compares "
+        "this area to OTHER neighbourhoods in the SAME city. A low score means "
+        "'lower than most areas here', NOT 'none', 'nobody', or 'empty'. Stay "
+        "relative and hedged. NEVER assert absolute real-world facts such as "
+        "'nobody lives here', 'not many people live nearby', or 'hard to reach "
+        "without a car' — you only know relative rankings, not absolute counts "
+        "or real travel times.\n"
+        "- 'Documented vegan offering' is a DATA-COMPLETENESS lens built from the "
+        "sparse diet:vegan tag, which undercounts reality. It is NEVER a measure "
+        "of demand, quality, or popularity. Do not treat a low value as 'low "
+        "demand' or as a reason a place is un/popular. Mention it ONLY when the "
+        "vegan lens is active, and only as 'documented vegan offering'.\n"
+        "- UNDERSERVED DEMAND: when residents, affluence, or foot-traffic are "
+        "present AND there are few competitors of this type, that is a possible "
+        "gap worth exploring. When there are MANY competitors of this type, the "
+        "area is saturated and riskier — say so.\n"
+        "\n"
+        f"FOCUS: {focus}\n"
+        "\n"
+        "OUTPUT FORMAT — follow exactly:\n"
+        "1. Write 2-3 short, plain sentences (no jargon, no raw numbers) saying "
+        f"why this area is or is not promising for a {label}, leading with the "
+        "focus drivers above.\n"
+        "2. Then ONE short, concrete line that starts with 'On the ground, "
+        f"check: ' and names something specific to verify for a {label} (for "
+        "example peak-hour foot-traffic, the pricing/quality of nearby "
+        "competitors, or parking and street visibility).\n"
+        "3. Then end with exactly: Signals, not guarantees."
     )
 
     gap_t = round(_num(props, f"gap_{type_}"))
     comp_t = int(_num(props, f"comp_{type_}"))
+    n_food = int(_num(props, "n_food"))
 
-    # A compact, qualitative-leaning summary line of the relevant signals.
+    # A CLEAN, LABELLED summary. Drivers are 0-100 and explicitly tagged
+    # "(relative)" so the model never reads them as absolute counts.
     parts = [
-        f"Business type: {label}",
-        f"Vegan lens active: {'yes' if vegan else 'no'}",
-        f"Foot-traffic proxy (0-1): {_num(props, 'traffic_norm'):.2f}",
-        f"Transit access (0-1): {_num(props, 'transit_norm'):.2f}",
-        f"Residential density (0-1): {_num(props, 'residential_norm'):.2f}",
-        f"Local income level (0-1): {_num(props, 'income_norm'):.2f}",
-        f"Offices/universities count: {int(_num(props, 'offices'))}",
-        f"Nearby {label} competitors: {comp_t}",
-        f"Meters to nearest {label}: {gap_t}",
+        f"Selected business type: {label}",
+        f"Foot-traffic: {round(_num(props, 'traffic_norm') * 100)}/100 (relative)",
+        f"Transit access: {round(_num(props, 'transit_norm') * 100)}/100 (relative)",
+        (
+            "Residential density: "
+            f"{round(_num(props, 'residential_norm') * 100)}/100 (relative)"
+        ),
+        f"Income level: {round(_num(props, 'income_norm') * 100)}/100 (relative)",
+        f"Nearest {label}: {gap_t} m away",
+        f"Competitors of this type nearby: {comp_t}",
+        f"Food establishments here: {n_food}",
     ]
-
-    opp = props.get(f"opp_{type_}")
-    if opp is not None:
-        try:
-            parts.append(f"Opportunity score within type (0-1): {float(opp):.2f}")
-        except (TypeError, ValueError):
-            pass
 
     if vegan:
         parts.append(
-            f"Documented vegan coverage (0-1): {_num(props, 'vegan_coverage'):.2f}"
+            "Documented vegan offering (data-completeness lens, not demand): "
+            f"{round(_num(props, 'vegan_coverage') * 100)}/100"
         )
 
-    user_text = "; ".join(parts) + "."
+    user_text = "\n".join(parts) + "."
     return system, user_text
 
 

@@ -129,21 +129,41 @@ export default function SpotPanel({ props, type, vegan, aiMode, onClose }) {
   const inputs = keyInputs(type, props);
   const comp = fmtInt(props[`comp_${type}`]);
 
+  const sectorId = props.unit_id || '—';
+
   return (
     <aside className="panel" aria-label="Zone details">
+      {/* Print-only summary header (hidden on screen, shown on paper). */}
+      <div className="panel__print-header" aria-hidden="true">
+        <div className="panel__print-brand">SpotFinder — {label}</div>
+        <div className="panel__print-meta">Sector {sectorId}</div>
+      </div>
+
       <header className="panel__header">
-        <div>
+        <div className="panel__heading">
           <div className="panel__eyebrow">{label} opportunity</div>
-          <div className="panel__id">Sector {props.unit_id || '—'}</div>
+          <div className="panel__id" title={`Sector ${sectorId}`}>Sector {sectorId}</div>
         </div>
-        <button
-          type="button"
-          className="panel__close"
-          onClick={onClose}
-          aria-label="Close panel"
-        >
-          ×
-        </button>
+        <div className="panel__actions">
+          <button
+            type="button"
+            className="panel__action"
+            onClick={() => window.print()}
+            aria-label="Print this sector summary"
+            title="Print this sector summary"
+          >
+            Print
+          </button>
+          <button
+            type="button"
+            className="panel__close"
+            onClick={onClose}
+            aria-label="Close panel"
+            title="Close"
+          >
+            ×
+          </button>
+        </div>
       </header>
 
       <div className="panel__index">

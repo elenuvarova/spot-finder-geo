@@ -285,6 +285,11 @@ FORMULA_WEIGHTS = {
 # it OR a touching neighbour has at least this many scored-type establishments
 # (see n_food_area in build_grid). A low value keeps the map well "filled" while
 # leaving truly isolated empty sectors (no food in or around them) grey.
+# NOTE: compute.py ANDs this activity gate with a VIABILITY test
+# (residential > 0 OR n_food > 0) so uninhabitable polygons — river / port /
+# pure-infra sectors with 0 residents and 0 establishments — are NULLed out
+# (greyed, not scored red) even when a neighbour has food: you cannot open a
+# business there.
 NOISE_MIN_FOOD = 1
 
 # Explainer thresholds (used by the backend / frontend to phrase WHY a hex

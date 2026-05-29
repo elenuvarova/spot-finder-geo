@@ -20,6 +20,15 @@ const SIGNALS_CAVEAT = ' These are signals, not guarantees — worth checking on
 const VEGAN_NOTE =
   ' There is almost no documented vegan offering nearby (the diet:vegan tag undercounts reality).';
 
+// Generic, type-aware "go and look" prompt. Mirror these in backend/explain.py.
+const ON_GROUND = {
+  cafe: ' On the ground, check: peak-hour foot-traffic and how easy it is to reach on foot or transit.',
+  bakery:
+    ' On the ground, check: morning footfall from nearby homes and how far people already walk for fresh bread.',
+  confectionery:
+    ' On the ground, check: who walks past, local spending power, and how the nearest competitors price and present themselves.',
+};
+
 // Safely coerce a possibly-null/undefined property to a number (default 0).
 function num(value) {
   const n = Number(value);
@@ -51,25 +60,59 @@ export function explainTemplate(type, vegan, props = {}) {
   const trafficNorm = num(props.traffic_norm);
   const veganCoverage = num(props.vegan_coverage);
 
+  // Reusable rule clauses (byte-identical to backend/explain.py).
+  const crowded = `This zone is already crowded with ${label} competitors — higher risk.`;
+  const catchmentGap = `Residential area and the nearest ${label} is roughly ${gapT}m away — a classic catchment gap.`;
+  const affluentTraffic = `Affluent foot-traffic with limited supply here — a strong signal for a ${label}.`;
+  const movement = `Plenty of movement and few ${label} competitors nearby.`;
+  const weak = `Demand signals here are weak — a lower-potential zone for a ${label}.`;
+
   let sentence;
 
-  // Evaluate in order; return the FIRST matching rule.
-  if (gapT >= GAP_HIGH_M && residentialNorm >= HIGH) {
-    sentence = `Residential area and the nearest ${label} is roughly ${gapT}m away — a classic catchment gap.`;
-  } else if (compT >= COMP_HIGH) {
-    sentence = `This zone is already crowded with ${label} competitors — higher risk.`;
-  } else if (incomeNorm >= HIGH && trafficNorm >= HIGH) {
-    sentence = `Affluent foot-traffic with limited supply here — a strong signal for a ${label}.`;
-  } else if (trafficNorm >= HIGH && compT < COMP_HIGH) {
-    sentence = `Plenty of movement and few ${label} competitors nearby.`;
+  // Saturation is the dominant risk for every type, so it leads when present.
+  // Otherwise lead with the driver that matters most for this type:
+  //   bakery -> residential + proximity gap, cafe -> traffic/transit,
+  //   confectionery -> income (affluent foot-traffic).
+  if (compT >= COMP_HIGH) {
+    sentence = crowded;
+  } else if (type === 'bakery') {
+    if (gapT >= GAP_HIGH_M && residentialNorm >= HIGH) {
+      sentence = catchmentGap;
+    } else if (incomeNorm >= HIGH && trafficNorm >= HIGH) {
+      sentence = affluentTraffic;
+    } else if (trafficNorm >= HIGH) {
+      sentence = movement;
+    } else {
+      sentence = weak;
+    }
+  } else if (type === 'confectionery') {
+    if (incomeNorm >= HIGH && trafficNorm >= HIGH) {
+      sentence = affluentTraffic;
+    } else if (gapT >= GAP_HIGH_M && residentialNorm >= HIGH) {
+      sentence = catchmentGap;
+    } else if (trafficNorm >= HIGH) {
+      sentence = movement;
+    } else {
+      sentence = weak;
+    }
   } else {
-    sentence = `Demand signals here are weak — a lower-potential zone for a ${label}.`;
+    // cafe (and any unknown type) -> traffic/transit first
+    if (trafficNorm >= HIGH && incomeNorm >= HIGH) {
+      sentence = affluentTraffic;
+    } else if (trafficNorm >= HIGH) {
+      sentence = movement;
+    } else if (gapT >= GAP_HIGH_M && residentialNorm >= HIGH) {
+      sentence = catchmentGap;
+    } else {
+      sentence = weak;
+    }
   }
 
   if (vegan && veganCoverage < 0.2) {
     sentence += VEGAN_NOTE;
   }
 
+  sentence += ON_GROUND[type] || ON_GROUND.cafe;
   sentence += SIGNALS_CAVEAT;
 
   return sentence;

@@ -7,9 +7,12 @@ export default function Legend({ type, vegan }) {
 
   return (
     <div className="legend">
-      <div className="legend__title">
-        Underserved demand · <strong>{label}</strong>
-        {vegan && <span className="legend__badge">vegan lens</span>}
+      <div className="legend__head">
+        <div className="legend__title">
+          <span className="legend__eyebrow">Underserved demand</span>
+          <strong className="legend__type">{label}</strong>
+        </div>
+        {vegan && <span className="legend__badge">Vegan lens</span>}
       </div>
 
       <div className="legend__scale" aria-hidden="true">

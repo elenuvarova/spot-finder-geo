@@ -7,7 +7,9 @@ Orchestration:
      residential_norm, income_norm) plus per-type gap_norm_<type>.
   3. For each type, apply its distinct formula (formulas.py) to get a RAW score.
   4. Percentile-normalise RAW to opp_<type> in 0..1 WITHIN that type.
-  5. Null out opp_<type> for hexes with n_food < NOISE_MIN_FOOD.
+  5. Null out opp_<type> unless the sector is scorable: neighbour-aware activity
+     (n_food_area >= NOISE_MIN_FOOD) AND viable (residential > 0 OR n_food > 0),
+     so uninhabitable river/port/pure-infra polygons are greyed out.
   6. Compute vegan_coverage (vegan-tagged / total establishments in hex).
   7. Write backend/data/antwerpen.geojson with EXACTLY the schema contract.
 
@@ -104,15 +106,23 @@ def compute():
         formula = FORMULA_REGISTRY[t]
         raw = grid.apply(lambda r: formula(r), axis=1).astype(float)
 
-        # --- 5. noise floor: exclude sparse sectors BEFORE percentile-ranking.
-        # The gate is NEIGHBOUR-AWARE (n_food_area = sector + touching neighbours)
-        # so a sector next to activity is scored even with no establishment of its
-        # own — those are the underserved candidates. Truly isolated empty sectors
-        # (no food in or around them) stay null. Ranking the remainder keeps the
-        # within-type 0..1 spread honest.
-        mask_sparse = grid["n_food_area"] < config.NOISE_MIN_FOOD
+        # --- 5. noise floor: exclude non-scorable sectors BEFORE percentile-ranking.
+        # A sector is scored ONLY IF it clears BOTH conditions:
+        #   (a) n_food_area >= NOISE_MIN_FOOD  — the NEIGHBOUR-AWARE activity gate
+        #       (n_food_area = sector + touching neighbours), so an empty sector
+        #       next to activity is still an underserved candidate; and
+        #   (b) residential > 0 OR n_food > 0  — the sector is VIABLE: people live
+        #       there OR it already hosts establishments of its own.
+        # Condition (b) NULLs uninhabitable polygons (river / port / pure
+        # infrastructure: 0 residents AND 0 establishments) even when a neighbour
+        # has food — you cannot open a business on water or a railyard, so scoring
+        # and colouring them red ("low opportunity") was misleading. Sectors with
+        # residents or their own establishments stay scorable. Ranking the
+        # remainder keeps the within-type 0..1 spread honest.
+        viable = (grid["residential"] > 0) | (grid["n_food"] > 0)
+        mask_keep = (grid["n_food_area"] >= config.NOISE_MIN_FOOD) & viable
         raw_scored = raw.copy()
-        raw_scored[mask_sparse] = np.nan
+        raw_scored[~mask_keep] = np.nan
 
         opp = _percentile_within_type(raw_scored)
         grid[f"opp_{t}"] = opp  # NaN where excluded / sparse
