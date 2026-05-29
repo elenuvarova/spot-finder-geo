@@ -27,7 +27,7 @@ export default function Legend({ type, vegan }) {
       </div>
 
       <p className="legend__hint">
-        Tip: tap a hex to inspect the signals behind its score.
+        Tip: tap a neighbourhood to inspect the signals behind its score.
       </p>
 
       <p className="legend__footnote">

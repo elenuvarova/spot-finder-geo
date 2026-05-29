@@ -11,7 +11,7 @@ export default function App() {
   const [type, setType] = useState('cafe');
   const [vegan, setVegan] = useState(false);
   const [aiMode, setAiMode] = useState(false); // AI mode defaults OFF.
-  const [selected, setSelected] = useState(null); // selected hex properties
+  const [selected, setSelected] = useState(null); // selected sector (unit) properties
 
   // Data lifecycle.
   const [data, setData] = useState(null);
@@ -35,7 +35,7 @@ export default function App() {
     load();
   }, [load]);
 
-  const selectedH3 = selected ? selected.h3 : null;
+  const selectedId = selected ? selected.unit_id : null;
 
   return (
     <div className="app">
@@ -44,7 +44,7 @@ export default function App() {
         data={data}
         type={type}
         vegan={vegan}
-        selectedH3={selectedH3}
+        selectedId={selectedId}
         onSelect={setSelected}
       />
 

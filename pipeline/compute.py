@@ -20,18 +20,12 @@ import json
 import os
 
 import geopandas as gpd
-import h3
 import numpy as np
 import pandas as pd
+from shapely.geometry import mapping
 
 import config
 from formulas import FORMULA_REGISTRY
-
-# h3 v3/v4 shim for the point->cell assignment used by vegan_coverage.
-if hasattr(h3, "latlng_to_cell"):
-    _latlng_to_cell = h3.latlng_to_cell
-else:
-    _latlng_to_cell = h3.geo_to_h3
 
 
 def _minmax_norm(series):
@@ -85,38 +79,6 @@ def _percentile_within_type(raw):
     return out
 
 
-def _compute_vegan_coverage(grid):
-    """Return a per-hex Series: vegan-tagged / total food establishments.
-
-    Counts are taken from the cleaned points assigned to each hex at the grid
-    resolution. Hexes with zero food establishments get 0.0 coverage.
-    The diet:vegan tag undercounts reality, so this is a DOCUMENTED-coverage
-    signal, not the true vegan share.
-    """
-    with open(config.CLEAN_POINTS_PATH, "r", encoding="utf-8") as fh:
-        fc = json.load(fh)
-
-    res = config.H3_RESOLUTION
-    total = {}
-    vegan = {}
-    for feat in fc.get("features", []):
-        p = feat["properties"]
-        if not p.get("is_food"):
-            continue
-        lon, lat = feat["geometry"]["coordinates"]
-        h = _latlng_to_cell(lat, lon, res)
-        total[h] = total.get(h, 0) + 1
-        if p.get("vegan"):
-            vegan[h] = vegan.get(h, 0) + 1
-
-    cov = []
-    for h in grid["h3"]:
-        t = total.get(h, 0)
-        v = vegan.get(h, 0)
-        cov.append((v / t) if t > 0 else 0.0)
-    return pd.Series(cov, index=grid.index, dtype=float)
-
-
 def compute():
     """Run the scoring orchestration and write the final GeoJSON."""
     grid = gpd.read_file(config.GRID_PATH)
@@ -125,7 +87,7 @@ def compute():
     elif str(grid.crs).upper() != "EPSG:4326":
         grid = grid.to_crs(config.OUTPUT_CRS)
 
-    print(f"[compute] loaded {len(grid)} hexes")
+    print(f"[compute] loaded {len(grid)} sectors")
 
     # --- 2. normalise drivers 0..1 across all hexes ------------------------
     grid["traffic_norm"] = _minmax_norm(grid["traffic"])
@@ -153,8 +115,10 @@ def compute():
         opp = _percentile_within_type(raw_scored)
         grid[f"opp_{t}"] = opp  # NaN where excluded / sparse
 
-    # --- 6. vegan coverage -------------------------------------------------
-    grid["vegan_coverage"] = _compute_vegan_coverage(grid)
+    # --- 6. vegan coverage (already computed per sector in build_grid) -----
+    grid["vegan_coverage"] = pd.to_numeric(
+        grid["vegan_coverage"], errors="coerce"
+    ).fillna(0.0)
 
     # --- 7. assemble GeoJSON with EXACTLY the schema contract --------------
     _write_geojson(grid)
@@ -186,15 +150,13 @@ def _write_geojson(grid):
     features = []
     for _, r in grid.iterrows():
         geom = r.geometry
-        # Polygon coordinates as [[ [lon,lat], ... ]] in WGS84.
-        coords = [list(map(list, geom.exterior.coords))]
 
         opp_cafe = r["opp_cafe"]
         opp_bakery = r["opp_bakery"]
         opp_conf = r["opp_confectionery"]
 
         props = {
-            "h3": str(r["h3"]),
+            "unit_id": str(r["unit_id"]),
             "traffic": _num(r["traffic"]),
             "transit": _num(r["transit"]),
             "offices": int(r["offices"]),
@@ -218,7 +180,7 @@ def _write_geojson(grid):
         }
         features.append({
             "type": "Feature",
-            "geometry": {"type": "Polygon", "coordinates": coords},
+            "geometry": mapping(geom),
             "properties": props,
         })
 
@@ -229,7 +191,7 @@ def _write_geojson(grid):
 
     # Summary logging.
     n_scored = {t: int(grid[f"opp_{t}"].notna().sum()) for t in config.TYPES}
-    print(f"[compute] hexes with scores per type: {n_scored}")
+    print(f"[compute] sectors with scores per type: {n_scored}")
     print(f"[compute] wrote {len(features)} features -> {config.OUTPUT_GEOJSON_PATH}")
 
 

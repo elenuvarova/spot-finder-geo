@@ -223,9 +223,11 @@ STATBEL_INCOME_FIELD = "MEAN_INCOME"      # canonical avg fiscal income (EUR)
 # ---------------------------------------------------------------------------
 # H3 grid
 # ---------------------------------------------------------------------------
-# Resolution 8 ~ 0.46 km^2 hexes (edge ~0.46 km): neighbourhood-block scale,
-# the right granularity for "where could a new cafe go".
-H3_RESOLUTION = 8
+# Resolution 9 ~ 0.10 km^2 hexes (edge ~0.17 km): neighbourhood-block scale,
+# finer than res 8. Going below res 9 hits two data floors: Statbel income/
+# population is constant within a sector (~hundreds of m), and smaller hexes
+# hold fewer establishments so more get nulled by the NOISE_MIN_FOOD gate.
+H3_RESOLUTION = 9
 
 
 # ---------------------------------------------------------------------------

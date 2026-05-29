@@ -65,7 +65,7 @@ function fillOpacityExpression(type) {
   ];
 }
 
-export default function Map({ data, type, vegan, selectedH3, onSelect }) {
+export default function Map({ data, type, vegan, selectedId, onSelect }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const loadedRef = useRef(false);
@@ -94,7 +94,7 @@ export default function Map({ data, type, vegan, selectedH3, onSelect }) {
       map.addSource(SOURCE_ID, {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
-        promoteId: 'h3',
+        promoteId: 'unit_id',
       });
 
       map.addLayer({
@@ -127,7 +127,7 @@ export default function Map({ data, type, vegan, selectedH3, onSelect }) {
           'line-color': '#1f2933',
           'line-width': 2.5,
         },
-        filter: ['==', ['get', 'h3'], '__none__'],
+        filter: ['==', ['get', 'unit_id'], '__none__'],
       });
 
       map.on('click', FILL_LAYER_ID, (e) => {
@@ -182,8 +182,8 @@ export default function Map({ data, type, vegan, selectedH3, onSelect }) {
     if (!map || !loadedRef.current) return;
     if (!map.getLayer(SELECTED_LAYER_ID)) return;
 
-    map.setFilter(SELECTED_LAYER_ID, ['==', ['get', 'h3'], selectedH3 || '__none__']);
-  }, [selectedH3]);
+    map.setFilter(SELECTED_LAYER_ID, ['==', ['get', 'unit_id'], selectedId || '__none__']);
+  }, [selectedId]);
 
   return <div ref={containerRef} className="map-container" aria-label="Map of Antwerp" />;
 }

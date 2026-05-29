@@ -331,7 +331,7 @@ def main():
     for i in range(n):
         cx, cy = centers[i]
         props = {
-            "h3": "sample-%04d" % (i + 1),
+            "unit_id": "sample-%04d" % (i + 1),
             "traffic": traffic[i],
             "transit": round(transit[i], 4),
             "offices": int(raw[i]["offices"]),

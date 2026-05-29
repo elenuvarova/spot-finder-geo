@@ -134,7 +134,7 @@ export default function SpotPanel({ props, type, vegan, aiMode, onClose }) {
       <header className="panel__header">
         <div>
           <div className="panel__eyebrow">{label} opportunity</div>
-          <div className="panel__id">Hex {props.h3 || '—'}</div>
+          <div className="panel__id">Sector {props.unit_id || '—'}</div>
         </div>
         <button
           type="button"

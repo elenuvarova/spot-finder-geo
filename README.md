@@ -2,7 +2,7 @@
 
 **Where is there room for one more coffee shop, bakery, or confectionery in Antwerp?**
 
-SpotFinder is an interactive map that surfaces *underserved* food-business demand across Antwerp. It blends open geodata — OpenStreetMap establishments and attractors, Belgian Statbel income and population — into a hexagon grid, then scores each cell for how promising it looks for a new café, bakery, or confectionery, accounting for existing competition. The honest framing runs through the whole product: these are **signals, not guarantees**. The map points you toward zones worth a closer look — a catchment gap here, affluent foot-traffic with little supply there — but every "opportunity" is a hypothesis to validate on foot, not a verdict. Foot-traffic is an explicit *proxy*, the vegan lens is built on a tag that *undercounts* reality, and there is deliberately no rent layer because the open data for it does not exist.
+SpotFinder is an interactive map that surfaces *underserved* food-business demand across Antwerp. It blends open geodata — OpenStreetMap establishments and attractors, Belgian Statbel income and population — onto Antwerp's ~450 statistical sectors (real neighbourhoods), then scores each sector for how promising it looks for a new café, bakery, or confectionery, accounting for existing competition. The honest framing runs through the whole product: these are **signals, not guarantees**. The map points you toward zones worth a closer look — a catchment gap here, affluent foot-traffic with little supply there — but every "opportunity" is a hypothesis to validate on foot, not a verdict. Foot-traffic is an explicit *proxy*, the vegan lens is built on a tag that *undercounts* reality, and there is deliberately no rent layer because the open data for it does not exist.
 
 ---
 
@@ -16,7 +16,7 @@ pipeline (OFFLINE)  ──writes──▶  backend/data/antwerpen.geojson  ─�
 
 **Data-flow one-liner:** the pipeline computes everything once, offline, and bakes the result into a single `antwerpen.geojson`; the backend just serves that file plus a thin AI explainer; the frontend renders it on a map.
 
-1. **Pipeline — heavy compute, run offline on a developer machine.** Python + geopandas/shapely/h3. Fetches OSM via Overpass and Statbel datasets, builds the H3 grid, computes every score, and writes the final `backend/data/antwerpen.geojson`. It is **never deployed**.
+1. **Pipeline — heavy compute, run offline on a developer machine.** Python + geopandas/shapely/h3. Fetches OSM via Overpass and Statbel datasets, aggregates everything onto Statbel statistical sectors, computes every score, and writes the final `backend/data/antwerpen.geojson`. It is **never deployed**.
 2. **Backend — serves GeoJSON on Render.** FastAPI. Loads the precomputed GeoJSON into memory at startup and serves it from `GET /api/spots`. Does **no** geospatial computation. Also hosts the AI zone-explainer (`POST /api/explain`).
 3. **Frontend — static MapLibre app on Vercel/Netlify.** Vite + React + MapLibre GL JS. A pure static bundle that fetches the GeoJSON and the explanations from the backend. No keys, no server.
 
@@ -24,7 +24,7 @@ pipeline (OFFLINE)  ──writes──▶  backend/data/antwerpen.geojson  ─�
 
 The geopandas/Overpass work is intentionally **not** in a request handler:
 
-- **Render request timeouts.** Reprojecting Statbel geometry, building an H3 grid, and running nearest-neighbour gap queries takes far longer than a web request should — it would blow past Render's timeouts and pin the dyno's memory. Precomputing once sidesteps this entirely; the request path only reads bytes.
+- **Render request timeouts.** Reprojecting Statbel geometry, aggregating thousands of points onto sectors, and running nearest-neighbour gap queries takes far longer than a web request should — it would blow past Render's timeouts and pin the dyno's memory. Precomputing once sidesteps this entirely; the request path only reads bytes.
 - **Overpass rate limits.** Overpass is a shared, free, rate-limited service. Calling it per request would be both abusive and unreliable. We hit it once, offline, politely.
 
 The result: the backend's hot path is "read a cached file from memory and return it" — fast, cheap, and safe on a free dyno.
@@ -68,9 +68,9 @@ Each formula produces a RAW score; the pipeline then converts RAW into a **withi
 
 ## AI zone-explainer
 
-When you click a hex, SpotFinder explains *why* it looks promising in plain language. This is a **two-layer** design built for graceful degradation (`backend/explain.py`):
+When you click a neighbourhood, SpotFinder explains *why* it looks promising in plain language. This is a **two-layer** design built for graceful degradation (`backend/explain.py`):
 
-1. **Layer 1 — rule-based template (always on).** A deterministic, jargon-free sentence assembled from the hex's metrics ("Residential area and the nearest bakery is roughly 480m away — a classic catchment gap"). It needs no network, no key, and always works. The frontend ships an identical copy of these rules (`frontend/src/explainer.js`) so it can render instantly and offline.
+1. **Layer 1 — rule-based template (always on).** A deterministic, jargon-free sentence assembled from the sector's metrics ("Residential area and the nearest bakery is roughly 480m away — a classic catchment gap"). It needs no network, no key, and always works. The frontend ships an identical copy of these rules (`frontend/src/explainer.js`) so it can render instantly and offline.
 2. **Layer 2 — Gemini "smart mode".** The backend calls the Gemini REST API for a warmer, more natural 2–3 sentence explanation. On **any** failure — missing key, a **429 `RESOURCE_EXHAUSTED`**, timeout, non-200, or a parse error — it **falls back to the Layer 1 template**. The `/api/explain` endpoint **never returns a 5xx**; it returns `{ explanation, source: "ai" | "template" }` so the UI can label which layer answered.
 
 The **Gemini API key lives only in the backend environment** (`GEMINI_API_KEY`). It is never read, bundled, or sent by the frontend — the browser only ever talks to the backend, which proxies the AI call.
@@ -79,51 +79,51 @@ The **Gemini API key lives only in the backend environment** (`GEMINI_API_KEY`).
 
 ## Data: layer → source → fact / proxy
 
-Every layer agrees on the same hex grid and the same GeoJSON contract.
+Every layer agrees on the same sector units and the same GeoJSON contract.
 
 | Layer | Source | Fact or proxy? |
 | --- | --- | --- |
 | Food establishments (cafés, bakeries, confectioneries) | OSM / Overpass | **Fact** (as mapped in OSM) — used for competition counts and gap distances |
 | Attractors (offices, universities, transit) | OSM / Overpass | **Fact** — feeds the traffic proxy, `transit`, and `offices` |
-| `traffic` foot-traffic | OSM / Overpass (weighted gastro + retail points in hex + neighbours) | **Proxy** — there is no open per-street footfall feed; we approximate it (see limitations) |
+| `traffic` foot-traffic | OSM / Overpass (weighted gastro + retail points in the sector) | **Proxy** — there is no open per-street footfall feed; we approximate it (see limitations) |
 | `diet:vegan` coverage | OSM / Overpass diet tags | **Proxy** — the tag **undercounts** real vegan offering (see limitations) |
 | Sector geometry | Statbel (statistical sectors, reprojected from Lambert 72 to WGS84) | **Fact** — the spatial unit income/population are joined on |
-| `income` (avg fiscal income, EUR) | Statbel fiscal-income dataset | **Fact** (sector average, not per-hex) |
-| `residential` population proxy | Statbel population-by-sector dataset | **Proxy for residential density**, distributed to hexes |
+| `income` (avg fiscal income, EUR) | Statbel fiscal-income dataset | **Fact** (native sector average) |
+| `residential` population | Statbel population-by-sector dataset | **Native** sector population |
 
 **Honest notes on this table:**
-- **`traffic` is a proxy, not measured footfall.** It is a weighted count of gastronomy + retail points in a hex and its neighbours — a stand-in for "how busy this place feels", because open, granular footfall data for Antwerp does not exist.
+- **`traffic` is a proxy, not measured footfall.** It is a weighted count of gastronomy + retail points in the sector — a stand-in for "how busy this place feels", because open, granular footfall data for Antwerp does not exist.
 - **`diet:vegan` undercounts.** Many places that serve vegan options simply aren't tagged in OSM, so `vegan_coverage` is a *lower bound* on real-world availability. The vegan lens copy says so out loud.
 
 ---
 
 ## The GeoJSON contract
 
-`backend/data/antwerpen.geojson` is a **`FeatureCollection` in WGS84 / EPSG:4326**, one **`Feature` per H3 hex**, `geometry` = `Polygon` (lon, lat order). Every layer (pipeline, backend, frontend) must agree on these `properties`:
+`backend/data/antwerpen.geojson` is a **`FeatureCollection` in WGS84 / EPSG:4326**, one **`Feature` per Statbel statistical sector**, `geometry` = `Polygon` or `MultiPolygon` (lon, lat order). Every layer (pipeline, backend, frontend) must agree on these `properties`:
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `h3` | string | H3 cell index (the synthetic sample uses ids like `sample-0001`) |
-| `traffic` | number | Honest foot-traffic **proxy** (weighted gastro + retail points in hex + neighbours) |
+| `unit_id` | string | Statbel statistical-sector code, e.g. `11002A00-` (the synthetic sample uses ids like `sample-0001`) |
+| `traffic` | number | Honest foot-traffic **proxy** (weighted gastro + retail points in the sector) |
 | `transit` | number | Transit access score |
 | `offices` | integer | Offices + universities count |
 | `residential` | number | Population proxy (Statbel sector) |
 | `income` | number | Avg fiscal income, EUR (Statbel sector) |
 | `n_food` | integer | Count of the three **scored** food types (café + bakery + confectionery) in hex (noise threshold; also the `vegan_coverage` denominator) |
-| `traffic_norm` | number | 0..1 across all hexes |
+| `traffic_norm` | number | 0..1 across all sectors |
 | `transit_norm` | number | 0..1 |
 | `residential_norm` | number | 0..1 |
 | `income_norm` | number | 0..1 |
-| `comp_cafe` | integer | Café competitors in hex + neighbours |
-| `comp_bakery` | integer | Bakery competitors in hex + neighbours |
-| `comp_confectionery` | integer | Confectionery competitors in hex + neighbours |
+| `comp_cafe` | integer | Café competitors in the sector |
+| `comp_bakery` | integer | Bakery competitors in the sector |
+| `comp_confectionery` | integer | Confectionery competitors in the sector |
 | `gap_cafe` | number | Metres to nearest café |
 | `gap_bakery` | number | Metres to nearest bakery |
 | `gap_confectionery` | number | Metres to nearest confectionery |
 | `opp_cafe` | number \| null | Percentile-normalized 0..1 **within type**; `null` if `n_food < 3` |
 | `opp_bakery` | number \| null | As above, for bakery |
 | `opp_confectionery` | number \| null | As above, for confectionery |
-| `vegan_coverage` | number | 0..1 documented `diet:vegan` coverage (vegan-tagged / total establishments in hex) |
+| `vegan_coverage` | number | 0..1 documented `diet:vegan` coverage (vegan-tagged / total food establishments in the sector) |
 
 > **The committed `backend/data/antwerpen.geojson` is currently a SYNTHETIC sample** (generated by `pipeline/make_sample.py`) so the app runs end-to-end before any real data has been fetched. It conforms exactly to the contract above but its numbers are made up. Run the pipeline against live OSM/Statbel data to replace it.
 >
@@ -148,7 +148,7 @@ python pipeline/make_sample.py            # -> backend/data/antwerpen.geojson
 python pipeline/fetch_osm.py              # 1. OSM/Overpass  -> pipeline/data/osm_points_raw.geojson
 python pipeline/fetch_statbel.py          # 2. Statbel       -> pipeline/data/statbel_sectors.geojson
 python pipeline/clean.py                  # 3. clean/classify-> pipeline/data/osm_points_clean.geojson
-python pipeline/build_grid.py             # 4. H3 grid       -> pipeline/data/grid.geojson
+python pipeline/build_grid.py             # 4. sector aggregates -> pipeline/data/grid.geojson
 python pipeline/compute.py                # 5. scores        -> backend/data/antwerpen.geojson
 ```
 
