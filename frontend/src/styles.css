@@ -162,7 +162,18 @@ body {
   line-height: 1;
 }
 
-/* AI toggle switch + the shared toggle styling. */
+/* AI toggle: a switch + label in its own card (matches the other control cards). */
+.ai-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
 .ai-toggle input {
   position: absolute;
   opacity: 0;
@@ -1228,10 +1239,19 @@ body {
   font-size: 12.5px;
   font-weight: 600;
   color: var(--ink);
-  max-width: 88px;
+  max-width: 128px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Small muted label so the codes read clearly as sector names, not raw numbers. */
+.top-zones__sector-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
 }
 
 .top-zones__bar {

@@ -102,7 +102,8 @@ export default function TopZones({
                 }}
               >
                 <span className="top-zones__rank">{i + 1}</span>
-                <span className="top-zones__sector" title={String(props.unit_id ?? '')}>
+                <span className="top-zones__sector" title={`Sector ${props.unit_id ?? ''}`}>
+                  <span className="top-zones__sector-tag">Sector</span>{' '}
                   {shortId(props.unit_id)}
                 </span>
                 <span className="top-zones__bar">
