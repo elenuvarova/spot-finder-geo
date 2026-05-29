@@ -35,15 +35,23 @@ DEFAULT_CITY = "antwerpen"
 # In-memory cache: slug -> pre-serialized GeoJSON bytes (loaded at startup).
 _geojson_cache: dict[str, bytes] = {}
 
+# In-memory cache: slug -> pre-serialized points GeoJSON bytes (loaded at
+# startup, best-effort). A missing points file leaves the slug absent here, so
+# /api/points returns a clear 503.
+_points_cache: dict[str, bytes] = {}
+
 
 def _load_geojson() -> None:
-    """Load and cache each city's GeoJSON as raw bytes.
+    """Load and cache each city's sector + points GeoJSON as raw bytes.
 
     Caching the bytes lets us serve them without re-parsing on every request. A
-    city whose file is missing is simply skipped (omitted from /api/cities, 503
-    on /api/spots), so the service still boots with whatever data is present.
+    city whose sector file is missing is simply skipped (omitted from
+    /api/cities, 503 on /api/spots), so the service still boots with whatever
+    data is present. The points file is best-effort: a missing one is logged and
+    skipped (503 on /api/points), independent of the sector data.
     """
     _geojson_cache.clear()
+    _points_cache.clear()
     for c in CITIES:
         path = DATA_DIR / f"{c['slug']}.geojson"
         try:
@@ -51,6 +59,21 @@ def _load_geojson() -> None:
             logger.info("Loaded GeoJSON for %s (%d bytes)", c["slug"], len(_geojson_cache[c["slug"]]))
         except (FileNotFoundError, OSError):
             logger.warning("GeoJSON for %s not found at %s — skipping", c["slug"], path)
+
+        points_path = DATA_DIR / f"{c['slug']}_points.geojson"
+        try:
+            _points_cache[c["slug"]] = points_path.read_bytes()
+            logger.info(
+                "Loaded points GeoJSON for %s (%d bytes)",
+                c["slug"],
+                len(_points_cache[c["slug"]]),
+            )
+        except (FileNotFoundError, OSError):
+            logger.warning(
+                "Points GeoJSON for %s not found at %s — skipping",
+                c["slug"],
+                points_path,
+            )
 
 
 @asynccontextmanager
@@ -86,7 +109,8 @@ app.add_middleware(
 # --- Request model (pydantic v2) -------------------------------------------
 class ExplainRequest(BaseModel):
     type: Literal["cafe", "bakery", "confectionery"]
-    vegan: bool = False
+    lens: str | None = None
+    vegan: bool = False  # legacy; superseded by `lens` when that is provided
     props: dict = Field(default_factory=dict)
 
 
@@ -123,6 +147,23 @@ def get_spots(city: str = DEFAULT_CITY) -> Response:
     return Response(content=data, media_type="application/json")
 
 
+@app.get("/api/points")
+def get_points(city: str = DEFAULT_CITY) -> Response:
+    """Return a city's points GeoJSON FeatureCollection (default: Antwerp).
+
+    Mirrors ``get_spots``: served from the in-memory points cache as
+    pre-serialized JSON bytes. Returns 503 if that city's points file was
+    missing/unloaded at startup.
+    """
+    data = _points_cache.get(city)
+    if data is None:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Points GeoJSON for city '{city}' is not available on the server.",
+        )
+    return Response(content=data, media_type="application/json")
+
+
 @app.post("/api/explain")
 async def post_explain(req: ExplainRequest) -> dict:
     """Two-layer zone explainer.
@@ -131,14 +172,16 @@ async def post_explain(req: ExplainRequest) -> dict:
     failure. MUST NEVER return a 5xx — the orchestrator never raises, and we
     wrap defensively here as well.
     """
+    # Prefer the explicit lens; fall back to the legacy `vegan` bool.
+    lens = req.lens if req.lens is not None else ("vegan" if req.vegan else None)
     try:
-        return await explain(req.type, req.vegan, req.props)
+        return await explain(req.type, lens, req.props)
     except Exception as exc:  # noqa: BLE001 - last-resort guard, never 5xx
         logger.error("Unexpected error in /api/explain, returning template: %s", exc)
         from explain import build_template_explanation
 
         return {
-            "explanation": build_template_explanation(req.type, req.vegan, req.props),
+            "explanation": build_template_explanation(req.type, lens, req.props),
             "source": "template",
         }
 

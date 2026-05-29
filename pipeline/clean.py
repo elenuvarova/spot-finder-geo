@@ -9,8 +9,9 @@ Responsibilities:
   * Filter Belgian "cafe-bars" out of amenity=cafe (drop bar=yes,
     alcohol-ish cuisine, real_ale, microbrewery/brewery). Explicit alcohol tags
     catch only ~2/281 cafes, so the cafe count is an UPPER BOUND (see config).
-  * Derive the vegan flag from the documented diet:vegan tag only
-    (diet:vegan in {yes, only}); cuisine=vegan is deliberately NOT used.
+  * Derive a flag per diet LENS (vegan / vegetarian / gluten-free / halal)
+    from its documented diet:* tag only (value in {yes, only}); cuisine=* is
+    deliberately NOT used. The legacy "vegan" field mirrors diet_vegan.
   * Emit a single cleaned point layer with stable, typed columns.
 
 Run:  python pipeline/clean.py
@@ -81,12 +82,17 @@ def _classify_attractor_roles(tags):
     return roles
 
 
-def _vegan_flag(tags):
-    """Derive vegan flag from diet:vegan in {yes, only}; cuisine=vegan NOT used."""
-    val = tags.get(config.VEGAN_DIET_TAG)
+def _diet_flag(tags, lens):
+    """Derive a diet-lens flag from its documented diet:* tag.
+
+    True iff the lens's tag is present and its value is in the lens 'values'
+    set. Every diet:* tag UNDERCOUNTS reality, so this is a documented-coverage
+    signal, not ground truth. (cuisine=* is deliberately NOT used.)
+    """
+    val = tags.get(lens["tag"])
     if val is None:
         return False
-    return str(val).strip().lower() in config.VEGAN_POSITIVE_VALUES
+    return str(val).strip().lower() in lens["values"]
 
 
 def clean():
@@ -98,7 +104,8 @@ def clean():
     dropped_cafe_bars = 0
     counts = {"cafe": 0, "bakery": 0, "confectionery": 0,
               "gastro": 0, "retail": 0, "transit": 0, "offices": 0}
-    vegan_count = 0
+    # Documented eateries flagged per diet lens (UNDERCOUNTS reality).
+    diet_counts = {slug: 0 for slug in config.DIET_LENSES}
 
     # Deduplicate: a real place can appear as both a node and an enclosing way.
     # Keyed on (rounded lon/lat, primary classification) so we don't double-count.
@@ -121,12 +128,17 @@ def clean():
             continue
 
         is_food = spot_type is not None  # all three scored types are "food"
-        # Vegan coverage is measured over EATERIES = scored food types PLUS gastro
-        # attractors (restaurants / fast_food / ...). Keep the diet:vegan flag for
-        # any eatery so a vegan RESTAURANT counts, not only a vegan cafe (otherwise
-        # ~78% of a city's documented vegan venues are silently dropped).
+        # Diet coverage is measured over EATERIES = scored food types PLUS gastro
+        # attractors (restaurants / fast_food / ...). Flag every diet lens on any
+        # eatery so a vegan/vegetarian/... RESTAURANT counts, not only a cafe
+        # (otherwise most of a city's documented diet venues are silently dropped).
         is_eatery = is_food or ("gastro" in roles)
-        vegan = _vegan_flag(tags) if is_eatery else False
+        diet_flags = {
+            slug: (_diet_flag(tags, lens) if is_eatery else False)
+            for slug, lens in config.DIET_LENSES.items()
+        }
+        # Back-compat: the legacy "vegan" field mirrors the vegan lens.
+        vegan = diet_flags["vegan"]
 
         # Deduplicate on coarse location + role signature.
         key = (round(lon, 6), round(lat, 6), spot_type, tuple(sorted(roles)))
@@ -138,8 +150,9 @@ def clean():
             counts[spot_type] += 1
         for r in roles:
             counts[r] += 1
-        if vegan:
-            vegan_count += 1
+        for slug, flag in diet_flags.items():
+            if flag:
+                diet_counts[slug] += 1
 
         props = {
             "osm_type": tags.get("osm_type"),
@@ -150,7 +163,11 @@ def clean():
             "is_retail": "retail" in roles,
             "is_transit": "transit" in roles,
             "is_office": "offices" in roles,
-            "vegan": bool(vegan),
+            "diet_vegan": bool(diet_flags["vegan"]),
+            "diet_vegetarian": bool(diet_flags["vegetarian"]),
+            "diet_glutenfree": bool(diet_flags["glutenfree"]),
+            "diet_halal": bool(diet_flags["halal"]),
+            "vegan": bool(vegan),                   # back-compat: == diet_vegan
             "name": tags.get("name"),
         }
         features_out.append({
@@ -172,7 +189,10 @@ def clean():
     if config.TYPE_LOW_CONFIDENCE.get("confectionery"):
         print(f"[clean] NOTE: 'confectionery' (pastry+confectionery merged) is a "
               f"thin sample -> LOW-CONFIDENCE; got {counts['confectionery']}")
-    print(f"[clean] documented diet:vegan establishments: {vegan_count}")
+    # Every diet:* tag UNDERCOUNTS reality: these are documented-coverage counts.
+    for slug, lens in config.DIET_LENSES.items():
+        print(f"[clean] documented {lens['tag']} eateries: {diet_counts[slug]} "
+              f"(undercounts reality)")
     print(f"[clean] wrote {len(features_out)} clean points -> {config.CLEAN_POINTS_PATH}")
     return config.CLEAN_POINTS_PATH
 

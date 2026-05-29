@@ -14,7 +14,8 @@ the raw aggregates the formulas need:
   * comp_<type>    competitors of that type in the sector
   * gap_<type>     metres from the sector's representative point to the nearest
                    establishment of that type (anywhere in Antwerp)
-  * vegan_coverage vegan-tagged / total food establishments in the sector
+  * <lens>_coverage  per diet lens (vegan/vegetarian/glutenfree/halal):
+                   lens-tagged / total eateries in the sector (low-n floored)
 
 Normalisation and the scoring formulas happen in compute.py.
 
@@ -54,6 +55,10 @@ def _load_points():
             "is_transit": bool(p.get("is_transit")),
             "is_office": bool(p.get("is_office")),
             "vegan": bool(p.get("vegan")),
+            "diet_vegan": bool(p.get("diet_vegan")),
+            "diet_vegetarian": bool(p.get("diet_vegetarian")),
+            "diet_glutenfree": bool(p.get("diet_glutenfree")),
+            "diet_halal": bool(p.get("diet_halal")),
             "geometry": Point(lon, lat),
         })
     return gpd.GeoDataFrame(rows, geometry="geometry", crs=config.OUTPUT_CRS)
@@ -115,7 +120,8 @@ def build_grid():
         grp = by_sector.get(code)
 
         if grp is None or len(grp) == 0:
-            n_gastro = n_retail = transit = offices = n_food = n_vegan = n_eatery = 0
+            n_gastro = n_retail = transit = offices = n_food = n_eatery = 0
+            n_diet = {slug: 0 for slug in config.DIET_LENSES}
             comp = {t: 0 for t in config.TYPES}
         else:
             n_gastro = int(grp["is_gastro"].sum())
@@ -123,11 +129,14 @@ def build_grid():
             transit = int(grp["is_transit"].sum())
             offices = int(grp["is_office"].sum())
             n_food = int(grp["is_food"].sum())
-            # Vegan coverage base = EATERIES (scored food types + gastro
-            # attractors like restaurants/fast_food), so vegan restaurants count.
+            # Diet coverage base = EATERIES (scored food types + gastro
+            # attractors like restaurants/fast_food), so diet restaurants count.
             eatery = grp["is_food"] | grp["is_gastro"]
             n_eatery = int(eatery.sum())
-            n_vegan = int((eatery & grp["vegan"]).sum())
+            n_diet = {
+                slug: int((eatery & grp[f"diet_{slug}"]).sum())
+                for slug in config.DIET_LENSES
+            }
             comp = {t: int((grp["spot_type"] == t).sum()) for t in config.TYPES}
 
         traffic = (config.TRAFFIC_PROXY_WEIGHTS["gastro"] * n_gastro
@@ -156,7 +165,12 @@ def build_grid():
 
         # Low-n floor: a single venue (1/1) must not read as 100% coverage, so
         # only compute coverage once at least 3 eateries are documented here.
-        vegan_coverage = (n_vegan / n_eatery) if n_eatery >= 3 else 0.0
+        # One coverage per diet lens (vegan/vegetarian/gluten-free/halal); each
+        # UNDERCOUNTS reality (documented-coverage signal, not demand/quality).
+        coverage = {
+            slug: ((n_diet[slug] / n_eatery) if n_eatery >= 3 else 0.0)
+            for slug in config.DIET_LENSES
+        }
 
         records.append({
             "unit_id": str(code),
@@ -173,7 +187,10 @@ def build_grid():
             "gap_cafe": float(gap["cafe"]),
             "gap_bakery": float(gap["bakery"]),
             "gap_confectionery": float(gap["confectionery"]),
-            "vegan_coverage": float(vegan_coverage),
+            "vegan_coverage": float(coverage["vegan"]),
+            "vegetarian_coverage": float(coverage["vegetarian"]),
+            "glutenfree_coverage": float(coverage["glutenfree"]),
+            "halal_coverage": float(coverage["halal"]),
         })
 
     grid = gpd.GeoDataFrame(

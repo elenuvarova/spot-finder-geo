@@ -53,6 +53,49 @@ export async function getSpots(city) {
 }
 
 /**
+ * Fetch the points FeatureCollection for a city (establishments, transit, etc).
+ *
+ * This is a NEW, optional dataset: the backend returns 503 when a city's points
+ * file is missing. Callers should treat ANY failure here as "no points" and keep
+ * the map working — so this throws on any non-OK response and the caller decides
+ * to swallow it (App sets points=null).
+ *
+ * @returns {Promise<object>} a GeoJSON FeatureCollection of Point features.
+ */
+export async function getPoints(city) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 90000);
+  const qs = city ? `?city=${encodeURIComponent(city)}` : '';
+
+  try {
+    const res = await fetch(`${BASE_URL}/api/points${qs}`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to load points (HTTP ${res.status})`);
+    }
+
+    const data = await res.json();
+
+    if (!data || data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
+      throw new Error('Unexpected response shape from /api/points');
+    }
+
+    return data;
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error('The backend took too long to respond (it may be waking up). Please retry.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
  * List the cities the backend can serve, with each city's map view.
  *
  * @returns {Promise<{cities: Array<{slug:string,name:string,center:number[],zoom:number}>, default: string}>}
@@ -72,7 +115,7 @@ export async function getCities() {
  * back to the template and returns { explanation, source: "template" }. We still
  * guard against transport errors so callers can keep the local template text.
  *
- * @param {object} payload - { type, vegan, props }.
+ * @param {object} payload - { type, lens, props } (lens is a slug or null).
  * @returns {Promise<{explanation: string, source: 'ai'|'template'}>}
  */
 export async function explain(payload) {

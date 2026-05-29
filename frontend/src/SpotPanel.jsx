@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { explainTemplate, TYPE_LABELS } from './explainer.js';
 import { explain as explainApi } from './api.js';
+import { LENSES, getLens } from './lenses.js';
+import SectorMiniMap from './SectorMiniMap.jsx';
+import EstablishmentsList from './EstablishmentsList.jsx';
 
 // Format a 0..1 opportunity index as a percentage, or an em-dash when null.
 function fmtIndex(value) {
@@ -19,12 +22,6 @@ function fmtMeters(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return '—';
   return `${Math.round(n)} m`;
-}
-
-function fmtPct(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return '—';
-  return `${Math.round(n * 100)}%`;
 }
 
 function fmtInt(value) {
@@ -75,9 +72,20 @@ function keyInputs(type, props) {
   return [traffic, proximity, income, residential, transit];
 }
 
-export default function SpotPanel({ props, type, vegan, aiMode, onClose }) {
+export default function SpotPanel({
+  props,
+  type,
+  lens,
+  aiMode,
+  selectedPointProps,
+  selectedPointFeatures,
+  features,
+  selectedId,
+  onCompareAdd,
+  onClose,
+}) {
   // Always compute the local template text first.
-  const template = props ? explainTemplate(type, vegan, props) : '';
+  const template = props ? explainTemplate(type, lens, props) : '';
 
   const [explanation, setExplanation] = useState(template);
   const [source, setSource] = useState('template');
@@ -87,7 +95,7 @@ export default function SpotPanel({ props, type, vegan, aiMode, onClose }) {
   useEffect(() => {
     if (!props) return;
 
-    const local = explainTemplate(type, vegan, props);
+    const local = explainTemplate(type, lens, props);
     // Show the template IMMEDIATELY.
     setExplanation(local);
     setSource('template');
@@ -98,7 +106,7 @@ export default function SpotPanel({ props, type, vegan, aiMode, onClose }) {
     let cancelled = false;
     setAiLoading(true);
 
-    explainApi({ type, vegan, props })
+    explainApi({ type, lens, props })
       .then((res) => {
         if (cancelled) return;
         // Replace text only when AI text arrives; keep template otherwise.
@@ -119,11 +127,12 @@ export default function SpotPanel({ props, type, vegan, aiMode, onClose }) {
     return () => {
       cancelled = true;
     };
-  }, [props, type, vegan, aiMode]);
+  }, [props, type, lens, aiMode]);
 
   if (!props) return null;
 
   const label = TYPE_LABELS[type] || 'spot';
+  const lensMeta = getLens(lens);
   const oppValue = props[`opp_${type}`];
   const oppNull = oppValue === null || oppValue === undefined;
   const inputs = keyInputs(type, props);
@@ -148,6 +157,15 @@ export default function SpotPanel({ props, type, vegan, aiMode, onClose }) {
           <button
             type="button"
             className="panel__action"
+            onClick={() => onCompareAdd && onCompareAdd(props)}
+            aria-label="Add this sector to compare"
+            title="Add to compare"
+          >
+            Compare
+          </button>
+          <button
+            type="button"
+            className="panel__action"
             onClick={() => window.print()}
             aria-label="Print this sector summary"
             title="Print this sector summary"
@@ -166,6 +184,13 @@ export default function SpotPanel({ props, type, vegan, aiMode, onClose }) {
         </div>
       </header>
 
+      {/* Locator mini-map: where this sector sits, with its establishments. */}
+      <SectorMiniMap
+        features={features}
+        selectedId={selectedId}
+        points={selectedPointFeatures}
+      />
+
       <div className="panel__index">
         {oppNull ? (
           <>
@@ -182,7 +207,7 @@ export default function SpotPanel({ props, type, vegan, aiMode, onClose }) {
             </div>
             <div className="panel__index-note">
               Opportunity index for a {label}
-              {vegan ? ' (vegan lens applied on the map)' : ''}.
+              {lensMeta ? ` (${lensMeta.label} lens applied on the map)` : ''}.
             </div>
           </>
         )}
@@ -204,7 +229,7 @@ export default function SpotPanel({ props, type, vegan, aiMode, onClose }) {
       </section>
 
       <section className="panel__section">
-        <h3 className="panel__section-title">Competition &amp; vegan</h3>
+        <h3 className="panel__section-title">Competition &amp; diet coverage</h3>
         <ul className="panel__metrics">
           <li className="panel__metric">
             <span className="panel__metric-label">{label} competitors (nearby)</span>
@@ -214,11 +239,29 @@ export default function SpotPanel({ props, type, vegan, aiMode, onClose }) {
             <span className="panel__metric-label">Food establishments here</span>
             <span className="panel__metric-value">{fmtInt(props.n_food)}</span>
           </li>
-          <li className="panel__metric">
-            <span className="panel__metric-label">Documented vegan coverage</span>
-            <span className="panel__metric-value">{fmtPct(props.vegan_coverage)}</span>
-          </li>
         </ul>
+        <p className="establishments__summary">Documented diet coverage</p>
+        <div className="diet-cov-row">
+          {LENSES.map((l) => {
+            const isActive = lens === l.slug;
+            const cov = Number(props[l.coverageKey]);
+            const pct = Math.round((Number.isFinite(cov) ? cov : 0) * 100);
+            return (
+              <span
+                key={l.slug}
+                className={`diet-cov${isActive ? ' is-active' : ''}`}
+                title={`Documented ${l.noteLabel} coverage (${l.tag} tag — undercounts reality)`}
+              >
+                {l.label} {pct}%
+              </span>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="panel__section">
+        <h3 className="panel__section-title">What's here</h3>
+        <EstablishmentsList points={selectedPointProps} type={type} />
       </section>
 
       <section className="panel__section panel__why">
@@ -240,8 +283,8 @@ export default function SpotPanel({ props, type, vegan, aiMode, onClose }) {
 
       <p className="panel__disclaimer">
         These are <strong>signals, not guarantees</strong>. Foot-traffic is a
-        weighted proxy and vegan figures come from the <code>diet:vegan</code> tag,
-        which undercounts reality. Always check a site on foot.
+        weighted proxy and diet figures come from <code>diet:*</code> tags,
+        which undercount reality. Always check a site on foot.
       </p>
     </aside>
   );

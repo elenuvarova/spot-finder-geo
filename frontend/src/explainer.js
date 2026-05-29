@@ -4,6 +4,8 @@
 // always-available explanation that the UI shows immediately. When AI mode is on
 // the backend may replace the text, but this template is the dependable fallback.
 
+import { getLens } from './lenses.js';
+
 // Thresholds (config). Mirror these in the backend.
 export const HIGH = 0.6; // applies to the *_norm fields (0..1)
 export const GAP_HIGH_M = 400; // meters; a "real" catchment gap
@@ -17,8 +19,18 @@ export const TYPE_LABELS = {
 };
 
 const SIGNALS_CAVEAT = ' These are signals, not guarantees — worth checking on foot.';
-const VEGAN_NOTE =
-  ' No vegan offering is documented among the eateries here yet (the diet:vegan tag undercounts reality).';
+
+// Lens note (BYTE-IDENTICAL to backend/explain.py and the SHARED CONTRACT).
+// Fires only when a lens is active AND that lens' coverage is exactly 0.
+function lensNote(lensMeta) {
+  return (
+    ' No ' +
+    lensMeta.noteLabel +
+    ' offering is documented among the eateries here yet (the ' +
+    lensMeta.tag +
+    ' tag undercounts reality).'
+  );
+}
 
 // Generic, type-aware "go and look" prompt. Mirror these in backend/explain.py.
 const ON_GROUND = {
@@ -44,11 +56,11 @@ function roundM(value) {
  * Build the template explanation for a hex.
  *
  * @param {('cafe'|'bakery'|'confectionery')} type - selected business type.
- * @param {boolean} vegan - whether the vegan lens is active.
+ * @param {string|null} lens - the active lens slug, or null for no lens.
  * @param {object} props - the hex GeoJSON feature properties.
  * @returns {string} a 2-3 sentence explanation ending with the signals caveat.
  */
-export function explainTemplate(type, vegan, props = {}) {
+export function explainTemplate(type, lens, props = {}) {
   const label = TYPE_LABELS[type] || TYPE_LABELS.cafe;
 
   // gap_T / comp_T are the fields for the selected type.
@@ -58,7 +70,8 @@ export function explainTemplate(type, vegan, props = {}) {
   const residentialNorm = num(props.residential_norm);
   const incomeNorm = num(props.income_norm);
   const trafficNorm = num(props.traffic_norm);
-  const veganCoverage = num(props.vegan_coverage);
+  const lensMeta = getLens(lens);
+  const coverage = lensMeta ? num(props[lensMeta.coverageKey]) : 0;
 
   // Reusable rule clauses (byte-identical to backend/explain.py).
   const crowded = `This zone is already crowded with ${label} competitors — higher risk.`;
@@ -108,10 +121,10 @@ export function explainTemplate(type, vegan, props = {}) {
     }
   }
 
-  // Only when there is genuinely NO documented vegan offering (not merely "low"),
-  // so the note stops firing on nearly every sector.
-  if (vegan && veganCoverage === 0) {
-    sentence += VEGAN_NOTE;
+  // Only when a lens is active AND there is genuinely NO documented offering for
+  // it (not merely "low"), so the note stops firing on nearly every sector.
+  if (lensMeta && coverage === 0) {
+    sentence += lensNote(lensMeta);
   }
 
   sentence += ON_GROUND[type] || ON_GROUND.cafe;

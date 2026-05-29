@@ -26,6 +26,33 @@ GAP_HIGH_M = 400  # meters: "far from nearest" catchment gap
 COMP_HIGH = 4  # competitor count considered crowded
 VEGAN_LOW = 0.2  # vegan_coverage below this => "almost no documented offering"
 
+# Dietary lenses (canonical order, slugs, metadata) — keep in sync with the
+# CONTRACT and frontend/src/lenses.js + explainer.js. Each lens is a
+# DATA-COMPLETENESS signal built from a sparse diet:* tag (undercounts reality),
+# NEVER a measure of demand/quality.
+LENSES = {
+    "vegan": {
+        "noteLabel": "vegan",
+        "tag": "diet:vegan",
+        "coverageKey": "vegan_coverage",
+    },
+    "vegetarian": {
+        "noteLabel": "vegetarian",
+        "tag": "diet:vegetarian",
+        "coverageKey": "vegetarian_coverage",
+    },
+    "glutenfree": {
+        "noteLabel": "gluten-free",
+        "tag": "diet:gluten_free",
+        "coverageKey": "glutenfree_coverage",
+    },
+    "halal": {
+        "noteLabel": "halal",
+        "tag": "diet:halal",
+        "coverageKey": "halal_coverage",
+    },
+}
+
 TYPE_LABELS = {
     "cafe": "coffee shop",
     "bakery": "bakery",
@@ -74,7 +101,7 @@ def _num(props: dict, key: str, default: float = 0.0) -> float:
         return default
 
 
-def build_template_explanation(type_: str, vegan: bool, props: dict) -> str:
+def build_template_explanation(type_: str, lens, props: dict) -> str:
     """Layer 1: deterministic rule-based explanation.
 
     Evaluates the rules in order and returns the first match. Mirrors
@@ -135,13 +162,18 @@ def build_template_explanation(type_: str, vegan: bool, props: dict) -> str:
         else:
             sentence = weak
 
-    # Only when there is genuinely NO documented vegan offering (not merely
-    # "low"), so the note stops firing on nearly every sector.
-    if vegan and _num(props, "vegan_coverage") == 0:
-        sentence += (
-            " No vegan offering is documented among the eateries here yet "
-            "(the diet:vegan tag undercounts reality)."
-        )
+    # Lens NOTE: fire only when a lens is active AND that lens's documented
+    # coverage is genuinely 0 (not merely "low"), so the note stops firing on
+    # nearly every sector. This MUST stay byte-identical to
+    # frontend/src/explainer.js.
+    if lens is not None and lens in LENSES:
+        meta = LENSES[lens]
+        if _num(props, meta["coverageKey"]) == 0:
+            sentence += (
+                " No " + meta["noteLabel"] + " offering is documented among the "
+                "eateries here yet (the " + meta["tag"] + " tag undercounts "
+                "reality)."
+            )
 
     sentence += ON_GROUND.get(type_, ON_GROUND["cafe"])
     sentence += CAVEAT
@@ -165,10 +197,23 @@ _TYPE_FOCUS = {
 }
 
 
-def _build_prompt(type_: str, vegan: bool, props: dict) -> tuple[str, str]:
+def _build_prompt(type_: str, lens, props: dict) -> tuple[str, str]:
     """Return (system_instruction, user_text) for the Gemini call."""
     label = _label(type_)
     focus = _TYPE_FOCUS.get(type_, _TYPE_FOCUS["cafe"])
+    meta = LENSES.get(lens) if lens is not None else None
+    note_label = meta["noteLabel"] if meta else None
+
+    # Lens guidance: generalised over any dietary lens. When a lens is active we
+    # name it explicitly so the model refers to it as "documented <noteLabel>
+    # offering" only; otherwise the guidance stays generic.
+    if note_label:
+        lens_guidance = (
+            "active; here the active lens is " + note_label + ", so refer to it "
+            "only as 'documented " + note_label + " offering'.\n"
+        )
+    else:
+        lens_guidance = "active, and only as 'documented <diet> offering'.\n"
 
     system = (
         "You help a non-analyst business owner judge whether one neighbourhood "
@@ -183,12 +228,13 @@ def _build_prompt(type_: str, vegan: bool, props: dict) -> tuple[str, str]:
         "'nobody lives here', 'not many people live nearby', or 'hard to reach "
         "without a car' — you only know relative rankings, not absolute counts "
         "or real travel times.\n"
-        "- 'Documented vegan offering' is a DATA-COMPLETENESS lens built from the "
-        "sparse diet:vegan tag, which undercounts reality. It is NEVER a measure "
-        "of demand, quality, or popularity. Do not treat a low value as 'low "
-        "demand' or as a reason a place is un/popular. Mention it ONLY when the "
-        "vegan lens is active, and only as 'documented vegan offering'.\n"
-        "- UNDERSERVED DEMAND: when residents, affluence, or foot-traffic are "
+        "- A 'documented <diet> offering' value (e.g. vegan, vegetarian, "
+        "gluten-free, halal) is a DATA-COMPLETENESS lens built from a sparse "
+        "diet:* tag, which undercounts reality. It is NEVER a measure of demand, "
+        "quality, or popularity. Do not treat a low value as 'low demand' or as a "
+        "reason a place is un/popular. Mention it ONLY when a dietary lens is "
+        + lens_guidance
+        + "- UNDERSERVED DEMAND: when residents, affluence, or foot-traffic are "
         "present AND there are few competitors of this type, that is a possible "
         "gap worth exploring. When there are MANY competitors of this type, the "
         "area is saturated and riskier — say so.\n"
@@ -226,17 +272,18 @@ def _build_prompt(type_: str, vegan: bool, props: dict) -> tuple[str, str]:
         f"Food establishments here: {n_food}",
     ]
 
-    if vegan:
+    if meta:
         parts.append(
-            "Documented vegan offering (data-completeness lens, not demand): "
-            f"{round(_num(props, 'vegan_coverage') * 100)}/100"
+            "Documented " + note_label + " offering (data-completeness lens, not "
+            "demand): "
+            f"{round(_num(props, meta['coverageKey']) * 100)}/100"
         )
 
     user_text = "\n".join(parts) + "."
     return system, user_text
 
 
-async def build_ai_explanation(type_: str, vegan: bool, props: dict) -> str:
+async def build_ai_explanation(type_: str, lens, props: dict) -> str:
     """Layer 2: call the Gemini REST API and return the generated text.
 
     Raises on any failure (missing key, non-200, RESOURCE_EXHAUSTED, timeout,
@@ -251,7 +298,7 @@ async def build_ai_explanation(type_: str, vegan: bool, props: dict) -> str:
     )
     url = GEMINI_ENDPOINT.format(model=model)
 
-    system, user_text = _build_prompt(type_, vegan, props)
+    system, user_text = _build_prompt(type_, lens, props)
 
     payload = {
         "system_instruction": {"parts": [{"text": system}]},
@@ -288,18 +335,18 @@ async def build_ai_explanation(type_: str, vegan: bool, props: dict) -> str:
     return text
 
 
-async def explain(type_: str, vegan: bool, props: dict) -> dict:
+async def explain(type_: str, lens, props: dict) -> dict:
     """Orchestrator: try the AI layer, fall back to the template on ANY failure.
 
     Returns ``{"explanation": str, "source": "ai" | "template"}``.
     Never raises.
     """
     try:
-        text = await build_ai_explanation(type_, vegan, props)
+        text = await build_ai_explanation(type_, lens, props)
         return {"explanation": text, "source": "ai"}
     except Exception as exc:  # noqa: BLE001 - intentional broad fallback
         logger.info("AI explanation unavailable, using template: %s", exc)
         return {
-            "explanation": build_template_explanation(type_, vegan, props),
+            "explanation": build_template_explanation(type_, lens, props),
             "source": "template",
         }

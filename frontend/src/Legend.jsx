@@ -1,9 +1,11 @@
 // Color-scale legend with a one-line onboarding hint and the honesty footnote.
 
 import { TYPE_LABELS } from './explainer.js';
+import { getLens } from './lenses.js';
 
-export default function Legend({ type, vegan }) {
+export default function Legend({ type, lens }) {
   const label = TYPE_LABELS[type] || 'spot';
+  const lensMeta = getLens(lens);
 
   return (
     <div className="legend">
@@ -12,7 +14,7 @@ export default function Legend({ type, vegan }) {
           <span className="legend__eyebrow">Underserved demand</span>
           <strong className="legend__type">{label}</strong>
         </div>
-        {vegan && <span className="legend__badge">Vegan lens</span>}
+        {lensMeta && <span className="legend__badge">{lensMeta.label} lens</span>}
       </div>
 
       <div className="legend__scale" aria-hidden="true">
@@ -35,8 +37,8 @@ export default function Legend({ type, vegan }) {
 
       <p className="legend__footnote">
         Traffic is an honest <strong>proxy</strong> (weighted nearby points), not
-        a sensor count. Vegan coverage uses the <code>diet:vegan</code> tag, which
-        undercounts real availability. Signals, not guarantees.
+        a sensor count. Diet coverage uses <code>diet:*</code> tags, which
+        undercount real availability. Signals, not guarantees.
       </p>
     </div>
   );

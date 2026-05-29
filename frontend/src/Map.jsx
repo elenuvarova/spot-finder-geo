@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { buildScoreExpression } from './blend.js';
 
 // Free, no-API-key vector basemap.
 const STYLE_URL = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
@@ -14,27 +15,24 @@ const FILL_LAYER_ID = 'spots-fill';
 const LINE_LAYER_ID = 'spots-line';
 const SELECTED_LAYER_ID = 'spots-selected';
 
+// Establishments of the selected sector, drawn on top of the choropleth.
+const SEL_POINTS_SOURCE_ID = 'sel-points';
+const SEL_POINTS_LAYER_ID = 'sel-points-circles';
+
+const EMPTY_FC = { type: 'FeatureCollection', features: [] };
+
 // Grey shown when a hex has no opportunity value (n_food < 3 -> null).
 const NO_DATA_COLOR = '#cfd3d8';
 
 /**
- * Build the MapLibre expression that produces the 0..1 value driving the fill.
- *
- * When the vegan lens is on, the effective value is opp_<type> * (1 - vegan_coverage),
- * which discounts zones that already have documented vegan offerings.
- */
-function valueExpression(type, vegan) {
-  const opp = ['get', `opp_${type}`];
-  if (!vegan) return opp;
-  return ['*', opp, ['-', 1, ['coalesce', ['get', 'vegan_coverage'], 0]]];
-}
-
-/**
  * Fill-color paint expression: red (low) -> green (high) across 0..1, and an
  * explicit grey when opp_<type> is null (no data / below the noise threshold).
+ *
+ * The score VALUE comes from blend.js' buildScoreExpression so the choropleth
+ * always agrees with scoreFeature (the JS scorer used by TopZones/Compare).
  */
-function fillColorExpression(type, vegan) {
-  const value = valueExpression(type, vegan);
+function fillColorExpression(type, lens, blend) {
+  const value = buildScoreExpression(type, lens, blend);
   return [
     'case',
     // opp_<type> is null when n_food < 3 -> render as no-data grey.
@@ -65,7 +63,30 @@ function fillOpacityExpression(type) {
   ];
 }
 
-export default function Map({ data, type, vegan, selectedId, view, onSelect }) {
+// Normalise an incoming selectedPoints prop (FeatureCollection or array of
+// features) to a FeatureCollection the map source can consume.
+function toFeatureCollection(selectedPoints) {
+  if (!selectedPoints) return EMPTY_FC;
+  if (Array.isArray(selectedPoints)) {
+    return { type: 'FeatureCollection', features: selectedPoints };
+  }
+  if (selectedPoints.type === 'FeatureCollection' && Array.isArray(selectedPoints.features)) {
+    return selectedPoints;
+  }
+  return EMPTY_FC;
+}
+
+export default function Map({
+  data,
+  type,
+  lens,
+  blend,
+  selectedId,
+  selectedPoints,
+  view,
+  focus,
+  onSelect,
+}) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const loadedRef = useRef(false);
@@ -102,7 +123,7 @@ export default function Map({ data, type, vegan, selectedId, view, onSelect }) {
         type: 'fill',
         source: SOURCE_ID,
         paint: {
-          'fill-color': fillColorExpression(type, vegan),
+          'fill-color': fillColorExpression(type, lens, blend),
           'fill-opacity': fillOpacityExpression(type),
         },
       });
@@ -128,6 +149,30 @@ export default function Map({ data, type, vegan, selectedId, view, onSelect }) {
           'line-width': 2.5,
         },
         filter: ['==', ['get', 'unit_id'], '__none__'],
+      });
+
+      // Establishments of the selected sector — added empty, filled on demand.
+      map.addSource(SEL_POINTS_SOURCE_ID, {
+        type: 'geojson',
+        data: EMPTY_FC,
+      });
+
+      map.addLayer({
+        id: SEL_POINTS_LAYER_ID,
+        type: 'circle',
+        source: SEL_POINTS_SOURCE_ID,
+        paint: {
+          'circle-radius': 3.5,
+          'circle-color': [
+            'case',
+            ['==', ['get', 'is_eatery'], true],
+            '#1a7f56',
+            '#7b8794',
+          ],
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 1,
+          'circle-opacity': 0.95,
+        },
       });
 
       map.on('click', FILL_LAYER_ID, (e) => {
@@ -166,15 +211,15 @@ export default function Map({ data, type, vegan, selectedId, view, onSelect }) {
     else map.once('load', apply);
   }, [data]);
 
-  // Re-paint when the selected type or vegan lens changes.
+  // Re-paint when the selected type, lens, or blend changes.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
     if (!map.getLayer(FILL_LAYER_ID)) return;
 
-    map.setPaintProperty(FILL_LAYER_ID, 'fill-color', fillColorExpression(type, vegan));
+    map.setPaintProperty(FILL_LAYER_ID, 'fill-color', fillColorExpression(type, lens, blend));
     map.setPaintProperty(FILL_LAYER_ID, 'fill-opacity', fillOpacityExpression(type));
-  }, [type, vegan]);
+  }, [type, lens, blend]);
 
   // Update the selected-hex highlight.
   useEffect(() => {
@@ -185,12 +230,36 @@ export default function Map({ data, type, vegan, selectedId, view, onSelect }) {
     map.setFilter(SELECTED_LAYER_ID, ['==', ['get', 'unit_id'], selectedId || '__none__']);
   }, [selectedId]);
 
+  // Update the establishments overlay when the selected sector's points change.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const apply = () => {
+      const src = map.getSource(SEL_POINTS_SOURCE_ID);
+      if (src) src.setData(toFeatureCollection(selectedPoints));
+    };
+
+    if (loadedRef.current && map.getSource(SEL_POINTS_SOURCE_ID)) apply();
+    else map.once('load', apply);
+  }, [selectedPoints]);
+
   // Recenter the map when the selected city (view) changes.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !view || !view.center) return;
     map.flyTo({ center: view.center, zoom: view.zoom ?? ZOOM, duration: 700 });
   }, [view]);
+
+  // Fly to a focused location (e.g. a TopZones / Compare row click).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !focus || !focus.center) return;
+    const center = focus.center;
+    if (!Array.isArray(center) || center.length < 2) return;
+    if (!Number.isFinite(Number(center[0])) || !Number.isFinite(Number(center[1]))) return;
+    map.flyTo({ center, zoom: focus.zoom ?? Math.max(map.getZoom(), 13), duration: 700 });
+  }, [focus]);
 
   return <div ref={containerRef} className="map-container" aria-label="Map of Antwerp" />;
 }

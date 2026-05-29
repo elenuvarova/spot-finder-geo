@@ -62,6 +62,20 @@ body {
   gap: 12px;
 }
 
+/* Controls body holds everything below the brand bar. Always shown on desktop;
+   on mobile it collapses behind the Filters toggle (see the media query). */
+.controls__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* The Filters toggle only exists on mobile; hidden on desktop so the layout
+   matches today. */
+.controls__toggle {
+  display: none;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -136,22 +150,7 @@ body {
   line-height: 1;
 }
 
-/* Vegan lens */
-.vegan-lens {
-  background: var(--surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
-  padding: 12px 14px;
-}
-
-.vegan-lens__row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.vegan-lens__row input,
+/* AI toggle switch + the shared toggle styling. */
 .ai-toggle input {
   position: absolute;
   opacity: 0;
@@ -159,7 +158,6 @@ body {
   height: 0;
 }
 
-.vegan-lens__switch,
 .ai-toggle__switch {
   flex: 0 0 auto;
   position: relative;
@@ -170,7 +168,6 @@ body {
   transition: background 0.15s ease;
 }
 
-.vegan-lens__switch::after,
 .ai-toggle__switch::after {
   content: '';
   position: absolute;
@@ -184,35 +181,21 @@ body {
   transition: transform 0.15s ease;
 }
 
-.vegan-lens__row input:checked + .vegan-lens__switch,
 .ai-toggle input:checked + .ai-toggle__switch {
   background: var(--accent);
 }
 
-.vegan-lens__row input:checked + .vegan-lens__switch::after,
 .ai-toggle input:checked + .ai-toggle__switch::after {
   transform: translateX(16px);
 }
 
-.vegan-lens__row input:focus-visible + .vegan-lens__switch,
 .ai-toggle input:focus-visible + .ai-toggle__switch {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.vegan-lens__title {
-  font-weight: 600;
-  font-size: 13px;
-}
-
-.vegan-lens__note {
-  margin: 10px 0 0;
-  font-size: 11.5px;
-  line-height: 1.45;
-  color: var(--ink-faint);
-}
-
-.vegan-lens__note code,
+.lens-select__note code,
+.blend__note code,
 .legend__footnote code,
 .panel__disclaimer code {
   background: #eef1f3;
@@ -221,16 +204,207 @@ body {
   font-size: 0.92em;
 }
 
-/* AI toggle */
-.ai-toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+/* ---------- Dietary lens select ---------- */
+.lens-select {
   background: var(--surface);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   padding: 12px 14px;
+}
+
+.lens-select__label {
+  display: block;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.lens-select__control {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #f7f8fa;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
   cursor: pointer;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='%237b8794' d='M2 4l4 4 4-4z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+.lens-select__control:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.lens-select__note {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
+
+/* ---------- Scoring blend ---------- */
+.blend {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 12px 14px;
+}
+
+.blend__title {
+  margin: 0 0 2px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.blend__lead {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+.blend__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.blend__preset {
+  flex: 1 1 auto;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: #f0f2f4;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.blend__preset:hover {
+  background: #e4e7eb;
+}
+
+.blend__preset.is-active {
+  background: #e8f5ee;
+  color: var(--accent-ink);
+  border-color: #bfe3cf;
+}
+
+.blend__customize {
+  margin-top: 8px;
+  border: none;
+  background: transparent;
+  color: var(--accent-ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.blend__sliders {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.blend__slider {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.blend__slider-label {
+  font-weight: 600;
+}
+
+.blend__slider input[type='range'] {
+  grid-column: 1 / 3;
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.blend__slider-value {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.blend__reset {
+  margin-top: 2px;
+  align-self: flex-start;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.blend__reset:hover {
+  background: #f0f2f4;
+  color: var(--ink);
+}
+
+.blend__preset:focus-visible,
+.blend__customize:focus-visible,
+.blend__reset:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.blend__note {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
+
+/* ---------- Share button ---------- */
+.share-btn {
+  margin-left: auto;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--accent-ink);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.share-btn:hover {
+  background: #e8f5ee;
+  border-color: #bfe3cf;
+}
+
+.share-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .ai-toggle__text {
@@ -251,7 +425,7 @@ body {
   position: absolute;
   bottom: 16px;
   left: 16px;
-  z-index: 5;
+  z-index: 4;
   width: 288px;
   max-width: calc(100vw - 32px);
   background: var(--surface);
@@ -260,7 +434,7 @@ body {
   padding: 14px 16px;
 }
 
-/* Header: eyebrow + type label on the left, optional vegan badge on the right. */
+/* Header: eyebrow + type label on the left, optional lens badge on the right. */
 .legend__head {
   display: flex;
   align-items: flex-start;
@@ -371,7 +545,7 @@ body {
   top: 16px;
   right: 16px;
   bottom: 16px;
-  z-index: 6;
+  z-index: 12;
   width: 340px;
   max-width: calc(100vw - 32px);
   background: var(--surface);
@@ -694,8 +868,64 @@ body {
     gap: 8px;
   }
 
-  /* Keep the most important controls; trim chatter to save space. */
-  .vegan-lens__note {
+  /* Default mobile view = brand bar + map. The rest collapses behind the
+     Filters toggle and only shows when the drawer is open. */
+  .controls__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--accent-ink);
+    border-radius: 999px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .controls__toggle:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Share sits next to Filters; the toggle owns the auto-margin instead. */
+  .brand .share-btn {
+    margin-left: 6px;
+  }
+
+  /* Let the brand text shrink/truncate so both buttons stay on one row. */
+  .brand__text {
+    min-width: 0;
+  }
+
+  .brand__sub {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .controls__body {
+    display: none;
+  }
+
+  .controls.is-open .controls__body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    /* dvh dodges the iOS Safari URL-bar resize; vh is the fallback. */
+    max-height: calc(100vh - 120px);
+    max-height: calc(100dvh - 120px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Trim the densest helper copy on small screens. */
+  .lens-select__note,
+  .blend__note {
     display: none;
   }
 
@@ -710,13 +940,100 @@ body {
     display: none;
   }
 
+  /* Full-bleed bottom sheet; close/Done controls stay reachable under the iOS
+     toolbar thanks to dvh. */
   .panel {
     top: auto;
-    right: 12px;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: auto;
+    max-width: none;
+    border-radius: 16px 16px 0 0;
+    max-height: 80vh;
+    max-height: 80dvh;
+  }
+
+  /* Top-zones folds to a full-width strip; capped to the bottom half so it can
+     never push the page off-screen even when expanded. */
+  .top-zones {
     left: 12px;
+    right: 12px;
     bottom: 12px;
     width: auto;
-    max-height: 62vh;
+    max-width: none;
+    max-height: 50vh;
+    max-height: 50dvh;
+    overflow: hidden;
+  }
+
+  .top-zones__list {
+    max-height: 40vh;
+    max-height: 40dvh;
+  }
+
+  /* When a sheet/leaderboard owns the screen, collapse the persistent chrome so
+     overlays never fight for the same space. */
+  .app:has(.panel) .controls__body,
+  .app:has(.compare) .controls__body {
+    display: none !important;
+  }
+
+  .app:has(.panel) .top-zones,
+  .app:has(.compare) .top-zones,
+  .app:has(.panel) .legend,
+  .app:has(.compare) .legend {
+    display: none;
+  }
+
+  /* Full-width Compare sheet with a horizontally scrollable table. */
+  .compare {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    transform: none;
+    border-radius: 16px 16px 0 0;
+    max-height: 75vh;
+    max-height: 75dvh;
+    overflow: auto;
+  }
+
+  /* ---- Touch targets: >=40px hit areas (touch-only, desktop unaffected) ---- */
+  .panel__close,
+  .compare__close {
+    width: 40px;
+    height: 40px;
+  }
+
+  .panel__action {
+    height: 40px;
+    padding: 0 14px;
+  }
+
+  .top-zones__item {
+    padding: 10px 8px;
+    min-height: 44px;
+  }
+
+  .top-zones__cmp {
+    padding: 8px 4px;
+    min-height: 40px;
+  }
+
+  .top-zones__toggle {
+    min-height: 44px;
+  }
+
+  .share-btn {
+    min-height: 40px;
+    padding: 0 14px;
+  }
+
+  .city-select__btn,
+  .type-switch__btn,
+  .blend__preset {
+    min-height: 40px;
   }
 }
 
@@ -783,6 +1100,442 @@ body {
   outline-offset: 2px;
 }
 
+/* ---------- Top opportunities (bottom-right) ---------- */
+.top-zones {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 6;
+  width: 288px;
+  max-width: calc(100vw - 32px);
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.top-zones__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: none;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  padding: 12px 14px;
+}
+
+.top-zones__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.top-zones__count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-ink);
+  background: #e8f5ee;
+  border: 1px solid #bfe3cf;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.top-zones__chevron {
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+.top-zones__toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.top-zones__list {
+  list-style: none;
+  margin: 0;
+  padding: 0 6px 8px;
+  max-height: 40vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.top-zones__item {
+  display: grid;
+  grid-template-columns: 18px auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.top-zones__item:hover {
+  background: #f0f2f4;
+}
+
+.top-zones__item.is-selected {
+  background: #e8f5ee;
+}
+
+.top-zones__rank {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  text-align: right;
+}
+
+.top-zones__sector {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  max-width: 88px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-zones__bar {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: #e4e7eb;
+  overflow: hidden;
+}
+
+.top-zones__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #91cf60, #1a9850);
+}
+
+.top-zones__chip {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--accent-ink);
+  min-width: 22px;
+  text-align: right;
+}
+
+.top-zones__cmp {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-top: 2px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 999px;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.top-zones__item:hover .top-zones__cmp,
+.top-zones__cmp:hover,
+.top-zones__cmp:focus-visible {
+  color: var(--accent-ink);
+  border-color: var(--line);
+}
+
+.top-zones__cmp:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Compare bottom sheet ---------- */
+.compare {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 14;
+  width: min(720px, calc(100vw - 32px));
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  max-height: 56vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.compare__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.compare__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.compare__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.compare__clear {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.compare__clear:hover {
+  background: #f0f2f4;
+  color: var(--ink);
+}
+
+.compare__close {
+  border: none;
+  background: #f0f2f4;
+  color: var(--ink-soft);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.compare__close:hover {
+  background: #e4e7eb;
+  color: var(--ink);
+}
+
+.compare__clear:focus-visible,
+.compare__close:focus-visible,
+.compare__remove:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Scroll wrapper so a 3-4 column table scrolls horizontally on a phone
+   instead of clipping. Inert on desktop where the table fits. */
+.compare__scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.compare__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.compare__table th,
+.compare__table td {
+  padding: 7px 10px;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.compare__table thead th {
+  border-bottom: 2px solid var(--line);
+}
+
+.compare__table tbody th[scope='row'] {
+  text-align: left;
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.compare__table td {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.compare__table td.is-best {
+  background: #e8f5ee;
+  color: var(--accent-ink);
+}
+
+.compare__unit {
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.compare__remove {
+  margin-left: 6px;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.compare__remove:hover {
+  color: var(--ink);
+}
+
+/* ---------- Sector mini-map (in panel) ---------- */
+.sector-minimap {
+  margin-top: 14px;
+  padding: 8px;
+  background: #f7f8fa;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.sector-minimap svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.sector-minimap__cap {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-align: center;
+}
+
+/* ---------- Dietary coverage chips (panel) ---------- */
+.diet-cov-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.diet-cov {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: #f0f2f4;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.diet-cov.is-active {
+  color: var(--accent-ink);
+  background: #e8f5ee;
+  border-color: #bfe3cf;
+}
+
+/* ---------- Establishments list (panel) ---------- */
+.establishments {
+  margin-top: 4px;
+}
+
+.establishments__empty {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-faint);
+}
+
+.establishments__summary {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.establishments__group {
+  margin-bottom: 10px;
+}
+
+/* The focus group (the type you're scoring for) gets a tinted, accent-edged
+   container so "how many of my type are already here" is the easiest to find. */
+.establishments__group.is-focus {
+  background: #f3f9f5;
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px 4px;
+}
+
+.establishments__heading {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.establishments__heading span {
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.establishments__heading.is-focus-type {
+  color: var(--accent-ink);
+}
+
+/* Each establishment is its own chip, wrapping with row + column gaps, so
+   names stop reading as one run-on place. */
+.establishments__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 6px;
+  margin-top: 2px;
+}
+
+.establishments__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 3px 9px;
+  background: #f0f2f4;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--ink-soft);
+}
+
+/* Long place names wrap inside the chip rather than overflow the panel. */
+.establishments__name {
+  overflow-wrap: anywhere;
+}
+
+/* Focus-group chips carry the accent palette so competitors of your own type
+   are visible at a glance. */
+.establishments__group.is-focus .establishments__item {
+  background: #e8f5ee;
+  border-color: #bfe3cf;
+  color: var(--accent-ink);
+}
+
+/* "+N more" and "N unnamed" read as a quiet ghost chip, not loose text. */
+.establishments__item--ghost,
+.establishments__group.is-focus .establishments__item--ghost {
+  background: transparent;
+  border: 1px dashed var(--line);
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+
+.diet-chip {
+  font-size: 11px;
+  line-height: 1;
+}
+
 /* ---------- Print: one-page summary of the selected sector ---------- */
 @media print {
   /* Paper is white; ink is black; no chrome. */
@@ -802,7 +1555,11 @@ body {
   .map-container,
   .controls,
   .legend,
-  .overlay {
+  .overlay,
+  .top-zones,
+  .compare,
+  .share-btn,
+  .blend {
     display: none !important;
   }
 
@@ -888,6 +1645,64 @@ body {
 
   .panel,
   .panel * {
+    color: #000 !important;
+  }
+
+  /* Compare button in the panel is on-screen only. */
+  .panel__action {
+    display: none !important;
+  }
+
+  /* Locator mini-map MUST print — flatten to black/greys (it's inline SVG, so
+     forcing fills via print color adjustment keeps it readable on paper). */
+  .sector-minimap {
+    background: #fff !important;
+    border: 1px solid #999 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .sector-minimap svg path {
+    fill: #fff !important;
+    stroke: #555 !important;
+  }
+
+  /* The selected sector path (the only one with a non-trivial fill) reads as a
+     light grey wash so the locator is obvious in print. */
+  .sector-minimap svg path:last-of-type {
+    fill: #d9d9d9 !important;
+    stroke: #000 !important;
+  }
+
+  .sector-minimap svg circle {
+    fill: #000 !important;
+  }
+
+  /* Dietary coverage chips print as outlined greys. */
+  .diet-cov {
+    background: #fff !important;
+    border: 1px solid #999 !important;
+  }
+
+  /* The establishments list prints inside the panel. */
+  .establishments,
+  .establishments__group {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Flatten establishment chips to clean outlined pills on paper. */
+  .establishments__group.is-focus {
+    background: #fff !important;
+    border-left: 2px solid #000 !important;
+  }
+
+  .establishments__item,
+  .establishments__group.is-focus .establishments__item {
+    background: #fff !important;
+    border: 1px solid #999 !important;
     color: #000 !important;
   }
 

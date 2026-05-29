@@ -2,7 +2,7 @@
 
 Orchestration:
   1. Load the aggregated grid (build_grid.py output) and the cleaned points
-     (for vegan_coverage).
+     (for the diet coverages).
   2. Normalise the drivers to 0..1 ACROSS all hexes (traffic_norm, transit_norm,
      residential_norm, income_norm) plus per-type gap_norm_<type>.
   3. For each type, apply its distinct formula (formulas.py) to get a RAW score.
@@ -10,7 +10,7 @@ Orchestration:
   5. Null out opp_<type> unless the sector is scorable: neighbour-aware activity
      (n_food_area >= NOISE_MIN_FOOD) AND viable (residential > 0 OR n_food > 0),
      so uninhabitable river/port/pure-infra polygons are greyed out.
-  6. Compute vegan_coverage (vegan-tagged / total establishments in hex).
+  6. Carry through the diet coverages (vegan/vegetarian/glutenfree/halal).
   7. Write backend/data/antwerpen.geojson with EXACTLY the schema contract.
 
 Run:  python pipeline/compute.py
@@ -127,10 +127,12 @@ def compute():
         opp = _percentile_within_type(raw_scored)
         grid[f"opp_{t}"] = opp  # NaN where excluded / sparse
 
-    # --- 6. vegan coverage (already computed per sector in build_grid) -----
-    grid["vegan_coverage"] = pd.to_numeric(
-        grid["vegan_coverage"], errors="coerce"
-    ).fillna(0.0)
+    # --- 6. diet coverages (already computed per sector in build_grid) -----
+    # One coverage per diet lens; each UNDERCOUNTS reality (documented-coverage
+    # signal, not demand/quality). Coerce numeric and floor missing to 0.
+    for slug in config.DIET_LENSES:
+        col = f"{slug}_coverage"
+        grid[col] = pd.to_numeric(grid[col], errors="coerce").fillna(0.0)
 
     # --- 7. assemble GeoJSON with EXACTLY the schema contract --------------
     _write_geojson(grid)
@@ -189,6 +191,9 @@ def _write_geojson(grid):
             "opp_bakery": _opp_value(opp_bakery),
             "opp_confectionery": _opp_value(opp_conf),
             "vegan_coverage": _num(r["vegan_coverage"]),
+            "vegetarian_coverage": _num(r["vegetarian_coverage"]),
+            "glutenfree_coverage": _num(r["glutenfree_coverage"]),
+            "halal_coverage": _num(r["halal_coverage"]),
         }
         features.append({
             "type": "Feature",

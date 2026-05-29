@@ -192,7 +192,7 @@ TRAFFIC_PROXY_WEIGHTS = {
 
 
 # ---------------------------------------------------------------------------
-# Vegan signal
+# Diet signals (vegan + the wider diet lenses)
 # ---------------------------------------------------------------------------
 # We derive a vegan flag from the documented diet:vegan tag ONLY.
 # IMPORTANT: cuisine=vegan is explicitly NOT used (it is unreliable / means
@@ -200,6 +200,18 @@ TRAFFIC_PROXY_WEIGHTS = {
 # offerings, so vegan_coverage is a DOCUMENTED-coverage signal, not ground truth.
 VEGAN_DIET_TAG = "diet:vegan"
 VEGAN_POSITIVE_VALUES = {"yes", "only"}   # diet:vegan in {yes, only}
+
+# The full set of diet LENSES. Each lens flags an eatery from a documented
+# diet:* tag (value in the lens 'values' set). Like vegan, every diet:* tag
+# UNDERCOUNTS reality, so the derived coverages are DOCUMENTED-coverage signals,
+# never demand/quality. Keys here are the canonical lens slugs shared with the
+# frontend / backend.
+DIET_LENSES = {
+    "vegan":      {"tag": "diet:vegan",       "values": {"yes", "only"}},
+    "vegetarian": {"tag": "diet:vegetarian",  "values": {"yes", "only"}},
+    "glutenfree": {"tag": "diet:gluten_free", "values": {"yes", "only"}},
+    "halal":      {"tag": "diet:halal",        "values": {"yes", "only"}},
+}
 
 
 # ---------------------------------------------------------------------------
@@ -314,3 +326,7 @@ GRID_PATH = os.path.join(DATA_DIR, f"{CITY}_grid.geojson")
 
 # FINAL output: backend/data/<city>.geojson — the exact file the backend serves.
 OUTPUT_GEOJSON_PATH = os.path.join(REPO_ROOT, "backend", "data", f"{CITY}.geojson")
+
+# FINAL per-point output: backend/data/<city>_points.geojson — the point layer
+# the backend serves at /api/points (one feature per cleaned OSM point).
+POINTS_OUTPUT_PATH = os.path.join(REPO_ROOT, "backend", "data", f"{CITY}_points.geojson")
