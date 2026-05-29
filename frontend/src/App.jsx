@@ -4,7 +4,8 @@ import TypeSwitch from './TypeSwitch.jsx';
 import VeganLens from './VeganLens.jsx';
 import Legend from './Legend.jsx';
 import SpotPanel from './SpotPanel.jsx';
-import { getSpots } from './api.js';
+import CitySelect from './CitySelect.jsx';
+import { getSpots, getCities } from './api.js';
 
 export default function App() {
   // App-owned state.
@@ -12,17 +13,19 @@ export default function App() {
   const [vegan, setVegan] = useState(false);
   const [aiMode, setAiMode] = useState(false); // AI mode defaults OFF.
   const [selected, setSelected] = useState(null); // selected sector (unit) properties
+  const [cities, setCities] = useState([]);
+  const [city, setCity] = useState('antwerpen');
 
   // Data lifecycle.
   const [data, setData] = useState(null);
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
   const [error, setError] = useState('');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (citySlug) => {
     setStatus('loading');
     setError('');
     try {
-      const fc = await getSpots();
+      const fc = await getSpots(citySlug);
       setData(fc);
       setStatus('ready');
     } catch (err) {
@@ -31,10 +34,36 @@ export default function App() {
     }
   }, []);
 
+  // On mount: discover available cities, then load the default one.
   useEffect(() => {
-    load();
+    let active = true;
+    getCities()
+      .then((res) => {
+        if (!active) return;
+        const list = res.cities || [];
+        const initial = res.default || (list[0] && list[0].slug) || 'antwerpen';
+        setCities(list);
+        setCity(initial);
+        load(initial);
+      })
+      .catch(() => {
+        if (active) load('antwerpen'); // fallback if /api/cities is unavailable
+      });
+    return () => {
+      active = false;
+    };
   }, [load]);
 
+  const onCity = useCallback(
+    (slug) => {
+      setCity(slug);
+      setSelected(null);
+      load(slug);
+    },
+    [load],
+  );
+
+  const cityView = cities.find((c) => c.slug === city) || null;
   const selectedId = selected ? selected.unit_id : null;
 
   return (
@@ -45,6 +74,7 @@ export default function App() {
         type={type}
         vegan={vegan}
         selectedId={selectedId}
+        view={cityView}
         onSelect={setSelected}
       />
 
@@ -58,6 +88,7 @@ export default function App() {
           </div>
         </div>
 
+        <CitySelect cities={cities} city={city} onChange={onCity} />
         <TypeSwitch type={type} onChange={setType} />
         <VeganLens vegan={vegan} onChange={setVegan} />
 
@@ -109,7 +140,7 @@ export default function App() {
           <div className="overlay__card">
             <h2 className="overlay__title">Couldn’t load the map</h2>
             <p className="overlay__text">{error}</p>
-            <button type="button" className="overlay__retry" onClick={load}>
+            <button type="button" className="overlay__retry" onClick={() => load(city)}>
               Retry
             </button>
           </div>

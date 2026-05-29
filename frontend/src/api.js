@@ -18,13 +18,14 @@ const BASE_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
  *
  * @returns {Promise<object>} a GeoJSON FeatureCollection.
  */
-export async function getSpots() {
+export async function getSpots(city) {
   const controller = new AbortController();
   // Generous timeout to survive a cold start.
   const timeout = setTimeout(() => controller.abort(), 90000);
+  const qs = city ? `?city=${encodeURIComponent(city)}` : '';
 
   try {
-    const res = await fetch(`${BASE_URL}/api/spots`, {
+    const res = await fetch(`${BASE_URL}/api/spots${qs}`, {
       method: 'GET',
       headers: { Accept: 'application/json' },
       signal: controller.signal,
@@ -49,6 +50,19 @@ export async function getSpots() {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/**
+ * List the cities the backend can serve, with each city's map view.
+ *
+ * @returns {Promise<{cities: Array<{slug:string,name:string,center:number[],zoom:number}>, default: string}>}
+ */
+export async function getCities() {
+  const res = await fetch(`${BASE_URL}/api/cities`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error(`Failed to load cities (HTTP ${res.status})`);
+  return res.json();
 }
 
 /**

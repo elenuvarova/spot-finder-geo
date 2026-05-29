@@ -8,18 +8,40 @@ The pipeline is run MANUALLY on a developer machine and is NOT deployed.
 """
 
 # ---------------------------------------------------------------------------
-# Geography: Antwerp (Antwerpen), Belgium
+# Geography: selectable city (Antwerp, Leuven, ...)
 # ---------------------------------------------------------------------------
-# Bounding box as (south_lat, west_lon, north_lat, east_lon).
-# This is the Overpass "bbox" ordering (lat,lon,lat,lon). It covers the
-# Antwerp municipality and its immediate surroundings generously enough that
-# every H3 cell whose centre falls inside the city is fully captured.
-ANTWERP_BBOX = (51.143, 4.270, 51.290, 4.500)  # (south, west, north, east)
+import os
+
+# Each city: bbox as (south_lat, west_lon, north_lat, east_lon) — Overpass
+# "bbox" ordering, used for the OSM query and the Statbel clip — plus a human
+# name and the frontend map view (center [lon, lat], zoom).
+CITIES = {
+    "antwerpen": {
+        "name": "Antwerp",
+        "bbox": (51.143, 4.270, 51.290, 4.500),
+        "center": [4.40, 51.21],
+        "zoom": 12,
+    },
+    "leuven": {
+        "name": "Leuven",
+        "bbox": (50.840, 4.640, 50.925, 4.760),
+        "center": [4.70, 50.879],
+        "zoom": 13,
+    },
+}
+
+# Active city, chosen via the SF_CITY env var so each stage runs per city:
+#   SF_CITY=leuven python pipeline/fetch_osm.py   (etc.)
+CITY = os.environ.get("SF_CITY", "antwerpen").strip().lower()
+if CITY not in CITIES:
+    raise SystemExit(f"Unknown SF_CITY={CITY!r}; known cities: {list(CITIES)}")
+CITY_NAME = CITIES[CITY]["name"]
+BBOX = CITIES[CITY]["bbox"]   # (south, west, north, east) for the active city
 
 
 def overpass_bbox_str():
-    """Return the bbox as the comma string Overpass expects: S,W,N,E."""
-    s, w, n, e = ANTWERP_BBOX
+    """Return the active city's bbox as the comma string Overpass expects: S,W,N,E."""
+    s, w, n, e = BBOX
     return f"{s},{w},{n},{e}"
 
 
@@ -259,9 +281,10 @@ FORMULA_WEIGHTS = {
 # ---------------------------------------------------------------------------
 # Thresholds
 # ---------------------------------------------------------------------------
-# A hex with fewer than this many food establishments is too sparse to score
-# reliably; opp_<type> is nulled out there (statistical noise floor).
-NOISE_MIN_FOOD = 3
+# A sector with fewer than this many scored-type food establishments is left
+# unscored (opp_<type> = null). At neighbourhood (sector) scale even 1-2 places
+# is meaningful, so this floor is low to keep the map well "filled".
+NOISE_MIN_FOOD = 1
 
 # Explainer thresholds (used by the backend / frontend to phrase WHY a hex
 # scores well; defined here so the whole project agrees on the cutoffs).
@@ -271,20 +294,17 @@ EXPLAINER_COMP_HIGH = 4     # comp at/above this counts as "crowded / lots of co
 
 
 # ---------------------------------------------------------------------------
-# Pipeline file paths (relative to repo root; pipeline is run from repo root)
+# Pipeline file paths (per active CITY; pipeline is run from repo root)
 # ---------------------------------------------------------------------------
-import os
-
-# pipeline/ lives at <repo>/pipeline ; data intermediates live alongside it.
 PIPELINE_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(PIPELINE_DIR)
 DATA_DIR = os.path.join(PIPELINE_DIR, "data")   # intermediate artefacts
 
-# Intermediate artefact paths written/read by the pipeline stages.
-OSM_POINTS_PATH = os.path.join(DATA_DIR, "osm_points_raw.geojson")
-CLEAN_POINTS_PATH = os.path.join(DATA_DIR, "osm_points_clean.geojson")
-STATBEL_SECTORS_PATH = os.path.join(DATA_DIR, "statbel_sectors.geojson")
-GRID_PATH = os.path.join(DATA_DIR, "grid.geojson")
+# Per-city intermediate artefacts (prefixed so cities never clobber each other).
+OSM_POINTS_PATH = os.path.join(DATA_DIR, f"{CITY}_osm_points_raw.geojson")
+CLEAN_POINTS_PATH = os.path.join(DATA_DIR, f"{CITY}_osm_points_clean.geojson")
+STATBEL_SECTORS_PATH = os.path.join(DATA_DIR, f"{CITY}_statbel_sectors.geojson")
+GRID_PATH = os.path.join(DATA_DIR, f"{CITY}_grid.geojson")
 
-# FINAL output: the exact file the backend serves.
-OUTPUT_GEOJSON_PATH = os.path.join(REPO_ROOT, "backend", "data", "antwerpen.geojson")
+# FINAL output: backend/data/<city>.geojson — the exact file the backend serves.
+OUTPUT_GEOJSON_PATH = os.path.join(REPO_ROOT, "backend", "data", f"{CITY}.geojson")

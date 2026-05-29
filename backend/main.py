@@ -22,30 +22,35 @@ from explain import explain
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("spotfinder")
 
-# Path relative to THIS module so it works regardless of the working directory.
-GEOJSON_PATH = Path(__file__).parent / "data" / "antwerpen.geojson"
+DATA_DIR = Path(__file__).parent / "data"
 
-# In-memory cache for the GeoJSON (loaded once at startup via the lifespan).
-_geojson_cache: bytes | None = None
+# Cities we serve. `slug` must match backend/data/<slug>.geojson and the
+# pipeline's CITIES keys. `center`/`zoom` drive the frontend map view.
+CITIES = [
+    {"slug": "antwerpen", "name": "Antwerp", "center": [4.40, 51.21], "zoom": 12},
+    {"slug": "leuven", "name": "Leuven", "center": [4.70, 50.879], "zoom": 13},
+]
+DEFAULT_CITY = "antwerpen"
+
+# In-memory cache: slug -> pre-serialized GeoJSON bytes (loaded at startup).
+_geojson_cache: dict[str, bytes] = {}
 
 
 def _load_geojson() -> None:
-    """Load and cache the GeoJSON as raw bytes.
+    """Load and cache each city's GeoJSON as raw bytes.
 
-    Caching the bytes lets us serve it without re-parsing/re-serializing on
-    every request. If the file is missing we leave the cache as None and the
-    endpoint returns 503.
+    Caching the bytes lets us serve them without re-parsing on every request. A
+    city whose file is missing is simply skipped (omitted from /api/cities, 503
+    on /api/spots), so the service still boots with whatever data is present.
     """
-    global _geojson_cache
-    try:
-        _geojson_cache = GEOJSON_PATH.read_bytes()
-        logger.info("Loaded GeoJSON from %s (%d bytes)", GEOJSON_PATH, len(_geojson_cache))
-    except FileNotFoundError:
-        _geojson_cache = None
-        logger.warning("GeoJSON not found at %s — /api/spots will return 503", GEOJSON_PATH)
-    except OSError as exc:
-        _geojson_cache = None
-        logger.error("Failed to read GeoJSON at %s: %s", GEOJSON_PATH, exc)
+    _geojson_cache.clear()
+    for c in CITIES:
+        path = DATA_DIR / f"{c['slug']}.geojson"
+        try:
+            _geojson_cache[c["slug"]] = path.read_bytes()
+            logger.info("Loaded GeoJSON for %s (%d bytes)", c["slug"], len(_geojson_cache[c["slug"]]))
+        except (FileNotFoundError, OSError):
+            logger.warning("GeoJSON for %s not found at %s — skipping", c["slug"], path)
 
 
 @asynccontextmanager
@@ -92,23 +97,30 @@ def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/api/cities")
+def get_cities() -> dict:
+    """List cities that have data loaded, with their map view (center/zoom)."""
+    available = [c for c in CITIES if c["slug"] in _geojson_cache]
+    default = DEFAULT_CITY if DEFAULT_CITY in _geojson_cache else (
+        available[0]["slug"] if available else None)
+    return {"cities": available, "default": default}
+
+
 @app.get("/api/spots")
-def get_spots() -> Response:
-    """Return the full Antwerpen GeoJSON FeatureCollection.
+def get_spots(city: str = DEFAULT_CITY) -> Response:
+    """Return a city's GeoJSON FeatureCollection (default: Antwerp).
 
     Served from the in-memory cache as pre-serialized JSON bytes — we bypass
     FastAPI's serializer because the cached content is already valid JSON.
-    Returns 503 with a clear message if the file was missing at startup.
+    Returns 503 if that city's file was missing/unloaded at startup.
     """
-    if _geojson_cache is None:
+    data = _geojson_cache.get(city)
+    if data is None:
         raise HTTPException(
             status_code=503,
-            detail=(
-                "GeoJSON dataset is not available on the server. Expected file "
-                f"at {GEOJSON_PATH.name} under the backend data directory."
-            ),
+            detail=f"GeoJSON for city '{city}' is not available on the server.",
         )
-    return Response(content=_geojson_cache, media_type="application/json")
+    return Response(content=data, media_type="application/json")
 
 
 @app.post("/api/explain")

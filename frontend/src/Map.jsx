@@ -65,7 +65,7 @@ function fillOpacityExpression(type) {
   ];
 }
 
-export default function Map({ data, type, vegan, selectedId, onSelect }) {
+export default function Map({ data, type, vegan, selectedId, view, onSelect }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const loadedRef = useRef(false);
@@ -184,6 +184,13 @@ export default function Map({ data, type, vegan, selectedId, onSelect }) {
 
     map.setFilter(SELECTED_LAYER_ID, ['==', ['get', 'unit_id'], selectedId || '__none__']);
   }, [selectedId]);
+
+  // Recenter the map when the selected city (view) changes.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !view || !view.center) return;
+    map.flyTo({ center: view.center, zoom: view.zoom ?? ZOOM, duration: 700 });
+  }, [view]);
 
   return <div ref={containerRef} className="map-container" aria-label="Map of Antwerp" />;
 }

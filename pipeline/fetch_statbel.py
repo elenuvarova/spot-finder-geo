@@ -28,7 +28,21 @@ import config
 
 
 def _download(url):
-    """Download a URL to bytes with polite retry/backoff on 429/5xx."""
+    """Download a URL to bytes, caching the national Statbel files on disk.
+
+    The Statbel datasets are national (identical for every city), so each
+    download is cached under pipeline/data/statbel_cache/ and reused across
+    cities — a second city (e.g. Leuven) needs no Statbel re-download.
+    """
+    cache_dir = os.path.join(config.DATA_DIR, "statbel_cache")
+    os.makedirs(cache_dir, exist_ok=True)
+    name = url.rstrip("/").split("/")[-1].split("?")[0] or "download.bin"
+    cache_path = os.path.join(cache_dir, name)
+    if os.path.exists(cache_path) and os.path.getsize(cache_path) > 0:
+        print(f"[fetch_statbel] using cached {name}")
+        with open(cache_path, "rb") as fh:
+            return fh.read()
+
     headers = {"User-Agent": config.USER_AGENT}
     last_exc = None
     for attempt in range(config.HTTP_MAX_RETRIES + 1):
@@ -48,6 +62,8 @@ def _download(url):
             time.sleep(wait)
             continue
         resp.raise_for_status()
+        with open(cache_path, "wb") as fh:
+            fh.write(resp.content)
         return resp.content
     if last_exc is not None:
         raise last_exc
@@ -220,12 +236,12 @@ def fetch_statbel():
     print(f"[fetch_statbel] sectors failing population merge: "
           f"{n_no_pop}/{total_sectors} ({100.0 * n_no_pop / total_sectors:.1f}%)")
 
-    # --- 5. clip to Antwerp bbox ------------------------------------------
-    s, w, n, e = config.ANTWERP_BBOX
+    # --- 5. clip to the active city's bbox --------------------------------
+    s, w, n, e = config.BBOX
     bbox_geom = box(w, s, e, n)  # shapely box takes (minx, miny, maxx, maxy)
     before = len(merged)
     merged = merged[merged.intersects(bbox_geom)].copy()
-    print(f"[fetch_statbel] clipped sectors to Antwerp bbox: "
+    print(f"[fetch_statbel] clipped sectors to {config.CITY_NAME} bbox: "
           f"{len(merged)}/{before} retained")
 
     # Keep only the columns the rest of the pipeline needs.

@@ -126,7 +126,7 @@ def fetch_osm():
     os.makedirs(config.DATA_DIR, exist_ok=True)
 
     query = _build_query()
-    print("[fetch_osm] querying Overpass for Antwerp ...")
+    print(f"[fetch_osm] querying Overpass for {config.CITY_NAME} ...")
     data = _post_with_retry(query)
 
     elements = data.get("elements", [])
