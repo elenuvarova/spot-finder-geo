@@ -886,6 +886,9 @@ body {
 @media (max-width: 720px) {
   .controls {
     width: calc(100vw - 24px);
+    /* Override the base max-width: calc(100vw - 32px), which would otherwise
+       cap the width 8px short and make the right margin (20px) > left (12px). */
+    max-width: none;
     top: 12px;
     left: 12px;
     gap: 8px;
@@ -956,6 +959,7 @@ body {
      it (see .top-zones bottom below), so the leaderboard reads first. */
   .legend {
     width: calc(100vw - 24px);
+    max-width: none; /* defeat the base cap so left/right margins match (12px) */
     left: 12px;
     bottom: 12px;
     padding: 12px 14px;
