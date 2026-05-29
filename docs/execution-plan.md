@@ -28,14 +28,20 @@ Clean venv (py3.10) boot → `/health` ok, `/api/spots` 60 features, `/api/expla
 
 ---
 
-## Remaining (Phase 6 — real data, not yet run)
-The only thing left is running the **real pipeline against live data** (CI used the synthetic sample by design — needs network + ~50 MB Statbel + Overpass):
-1. `cd pipeline` → venv (Python 3.11–3.13) → `pip install -r requirements.txt` → run `fetch_osm → fetch_statbel → clean → build_grid → compute`, writing the real `backend/data/antwerpen.geojson`.
-2. **De-risk before that run:** confirm the fiscal-income column name in `fetch_statbel.py` against the real XLSX header (flagged candidate: `MS_AVG_TOT_NET_TAXABLE_INC`) using the Statbel "Columns description" files.
+## Phase 6 — Real data ✅ (workflow `wlqyar621`)
+Ran the pipeline against **live Statbel + Overpass** (venv py3.10): `fetch_osm` (5426 OSM elements) → `fetch_statbel` (19,795 sectors reprojected 31370→4326, income year 2023, 458 Antwerp sectors) → `clean` (café 308 / bakery 157 / confectionery 34 ≈ Phase 0's 33; 11 diet:vegan) → `build_grid` (415 H3 res-8 cells) → `compute`.
+**`backend/data/antwerpen.geojson` is now REAL: 415 hexes (was 60 synthetic), 38 scorable per type, ~349 KB.** Validation PASS (21-field contract, all norms∈[0,1], opp null ⇔ n_food<3, 0 violations). Real stats: ~711k population over the bbox, median income ~40,392 EUR.
+Two real fixes to `fetch_statbel.py`: the geometry sector-code column is `CS01012022` (not `CD_SECTOR`); the income XLSX is a 2005–2023 series → filter to the latest year before averaging.
 
-## Known minor items (low, deferred — all honor the contract)
-- `compute.py` vs `make_sample.py` percentile convention differs for the single-qualifying-hex edge (1.0 vs 0.0); the synthetic sample is therefore a near- but not exact-proxy of real output.
-- "22-field contract" = 21 properties + Polygon geometry (reconciled; not a defect).
+## Polish ✅ (low findings closed)
+- `make_sample.py` percentile now mirrors `compute.py` (single hex → 1.0) — synthetic sample is a faithful proxy again.
+- README `n_food` wording tightened (scored types only).
+- `Map.jsx` vegan term null-guarded with `coalesce`.
+
+## Committed ✅
+Branch `spotfinder/scaffold`, root commit `57d56db`, 37 files (no venv/node_modules/dist/raw downloads). **Not pushed.** `.gitignore` extended to exclude pipeline raw/intermediate downloads while keeping `backend/data/antwerpen.geojson` tracked.
+
+> Note: "22-field contract" = 21 properties + Polygon geometry (reconciled; not a defect).
 
 ### Orchestration model
 - Each phase ran as a background workflow (deterministic fan-out); user in the loop between phases.
