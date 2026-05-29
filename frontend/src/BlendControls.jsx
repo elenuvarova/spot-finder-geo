@@ -38,6 +38,7 @@ function sliderValue(blend, key) {
 
 export default function BlendControls({ blend, onChange }) {
   const [expanded, setExpanded] = useState(blend && blend.mode === 'custom');
+  const [info, setInfo] = useState(false);
 
   // Move one slider -> rebuild a full custom weights object from current values.
   function handleSlider(key, value) {
@@ -50,8 +51,29 @@ export default function BlendControls({ blend, onChange }) {
 
   return (
     <div className="blend">
-      <h3 className="blend__title">Scoring blend</h3>
+      <div className="blend__head">
+        <h3 className="blend__title">Scoring blend</h3>
+        <button
+          type="button"
+          className="blend__info-btn"
+          aria-expanded={info}
+          aria-label="What is the scoring blend?"
+          title="What is the scoring blend?"
+          onClick={() => setInfo((v) => !v)}
+        >
+          i
+        </button>
+      </div>
       <p className="blend__lead">How sectors are ranked.</p>
+
+      {info && (
+        <p className="blend__info">
+          <strong>Default</strong> uses SpotFinder&apos;s per-type opportunity model — the
+          recommended view. The presets and <strong>Customize</strong> re-rank sectors by your
+          own weights across four drivers (foot-traffic, residents, income, transit): your
+          judgement on top of our data. This changes the ranking, not the underlying signals.
+        </p>
+      )}
 
       <div className="blend__presets" role="group" aria-label="Scoring presets">
         {PRESET_BUTTONS.map((p) => {
@@ -76,7 +98,10 @@ export default function BlendControls({ blend, onChange }) {
         aria-expanded={expanded}
         onClick={() => setExpanded((v) => !v)}
       >
-        Customize
+        <span>Customize weights</span>
+        <span className="blend__customize-icon" aria-hidden="true">
+          {expanded ? '−' : '+'}
+        </span>
       </button>
 
       {expanded && (
