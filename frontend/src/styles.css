@@ -62,6 +62,17 @@ body {
   gap: 12px;
 }
 
+/* Desktop: cap the controls column so a tall Scoring-blend section can never
+   overlap the bottom-left legend; on short windows it scrolls internally
+   instead. (Mobile uses the Filters drawer below, so scope this to desktop.) */
+@media (min-width: 721px) {
+  .controls {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
 /* Controls body holds everything below the brand bar. Always shown on desktop;
    on mobile it collapses behind the Filters toggle (see the media query). */
 .controls__body {

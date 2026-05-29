@@ -107,13 +107,12 @@ export default function BlendControls({ blend, onChange }) {
           >
             Reset to model
           </button>
+          <p className="blend__note">
+            Default uses SpotFinder's per-type model. Custom re-ranks by your own
+            weights — your judgement, our data.
+          </p>
         </div>
       )}
-
-      <p className="blend__note">
-        Default uses SpotFinder's per-type model. Custom re-ranks by your own
-        weights — your judgement, our data.
-      </p>
     </div>
   );
 }

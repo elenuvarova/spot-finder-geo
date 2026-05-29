@@ -31,14 +31,9 @@ export default function Legend({ type, lens }) {
         Too few establishments to score (greyed out)
       </div>
 
-      <p className="legend__hint">
-        Tip: tap a neighbourhood to inspect the signals behind its score.
-      </p>
-
       <p className="legend__footnote">
-        Traffic is an honest <strong>proxy</strong> (weighted nearby points), not
-        a sensor count. Diet coverage uses <code>diet:*</code> tags, which
-        undercount real availability. Signals, not guarantees.
+        Traffic is a <strong>proxy</strong>; <code>diet:*</code> tags undercount.
+        Signals, not guarantees.
       </p>
     </div>
   );
