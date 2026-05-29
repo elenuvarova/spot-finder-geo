@@ -101,9 +101,9 @@ real vegan offering.
 ## Deploy to Render
 
 1. Push the repo to GitHub.
-2. In Render: **New → Blueprint**, point it at this repo. Render reads
-   `backend/render.yaml` (one free web service, build `pip install -r
-   requirements.txt`, start `uvicorn main:app --host 0.0.0.0 --port $PORT`,
+2. In Render: **New → Blueprint**, point it at this repo (branch `main`). Render reads
+   `render.yaml` at the repo root (one free web service with `rootDir: backend`,
+   build `pip install -r requirements.txt`, start `uvicorn main:app --host 0.0.0.0 --port $PORT`,
    health check `/health`).
 3. Set the secret env vars in the dashboard:
    - `GEMINI_API_KEY` — your key (optional; omit for template-only).

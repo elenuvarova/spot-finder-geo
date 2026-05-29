@@ -180,7 +180,7 @@ npm run dev                               # http://localhost:5173
 
 ### Backend → Render
 
-- Deploy via the **`backend/render.yaml`** Blueprint (single free-tier web service, `rootDir: backend`, health check on `/health`).
+- Deploy via the **`render.yaml`** Blueprint at the repo root (single free-tier web service, `rootDir: backend`, health check on `/health`). In Render: **New → Blueprint**, pick the **`main`** branch, leave Blueprint Path blank.
 - In the Render dashboard set the two `sync: false` secrets:
   - **`GEMINI_API_KEY`** — enables Gemini smart mode (leave blank to stay template-only).
   - **`FRONTEND_ORIGIN`** — your real frontend URL for CORS (comma-separated origins; avoid `*` in production).
