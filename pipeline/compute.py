@@ -104,11 +104,13 @@ def compute():
         formula = FORMULA_REGISTRY[t]
         raw = grid.apply(lambda r: formula(r), axis=1).astype(float)
 
-        # --- 5. noise floor: exclude sparse hexes BEFORE percentile-ranking.
-        # Hexes below the food threshold are nulled; ranking the remainder
-        # keeps the within-type 0..1 spread honest (sparse hexes don't dilute
-        # the distribution).
-        mask_sparse = grid["n_food"] < config.NOISE_MIN_FOOD
+        # --- 5. noise floor: exclude sparse sectors BEFORE percentile-ranking.
+        # The gate is NEIGHBOUR-AWARE (n_food_area = sector + touching neighbours)
+        # so a sector next to activity is scored even with no establishment of its
+        # own — those are the underserved candidates. Truly isolated empty sectors
+        # (no food in or around them) stay null. Ranking the remainder keeps the
+        # within-type 0..1 spread honest.
+        mask_sparse = grid["n_food_area"] < config.NOISE_MIN_FOOD
         raw_scored = raw.copy()
         raw_scored[mask_sparse] = np.nan
 

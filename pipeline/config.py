@@ -281,9 +281,10 @@ FORMULA_WEIGHTS = {
 # ---------------------------------------------------------------------------
 # Thresholds
 # ---------------------------------------------------------------------------
-# A sector with fewer than this many scored-type food establishments is left
-# unscored (opp_<type> = null). At neighbourhood (sector) scale even 1-2 places
-# is meaningful, so this floor is low to keep the map well "filled".
+# Noise gate, applied NEIGHBOUR-AWARE in compute.py: a sector is scored only if
+# it OR a touching neighbour has at least this many scored-type establishments
+# (see n_food_area in build_grid). A low value keeps the map well "filled" while
+# leaving truly isolated empty sectors (no food in or around them) grey.
 NOISE_MIN_FOOD = 1
 
 # Explainer thresholds (used by the backend / frontend to phrase WHY a hex

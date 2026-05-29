@@ -170,12 +170,28 @@ def build_grid():
             "vegan_coverage": float(vegan_coverage),
         })
 
-    grid = gpd.GeoDataFrame(records, geometry="geometry", crs=config.OUTPUT_CRS)
+    grid = gpd.GeoDataFrame(
+        records, geometry="geometry", crs=config.OUTPUT_CRS
+    ).reset_index(drop=True)
+
+    # Neighbour-aware food count = a sector PLUS its touching neighbours. This is
+    # the NOISE GATE basis (compute.py): a sector next to activity but with no
+    # establishment of a type *itself* is exactly an underserved candidate, so we
+    # score it rather than grey it out. `n_food` (per sector) stays the displayed
+    # value; `n_food_area` is gating-only and is NOT written to the final GeoJSON.
+    sidx = grid.sindex
+    nf = grid["n_food"].to_numpy()
+    area = []
+    for geom in grid.geometry:
+        nbrs = list(sidx.query(geom, predicate="intersects"))  # includes self
+        area.append(int(nf[nbrs].sum()) if len(nbrs) else 0)
+    grid["n_food_area"] = area
+
     os.makedirs(config.DATA_DIR, exist_ok=True)
     grid.to_file(config.GRID_PATH, driver="GeoJSON")
-    n_scorable = int((grid["n_food"] >= config.NOISE_MIN_FOOD).sum())
+    n_scorable = int((grid["n_food_area"] >= config.NOISE_MIN_FOOD).sum())
     print(f"[build_grid] wrote {len(grid)} sectors -> {config.GRID_PATH} "
-          f"({n_scorable} with n_food >= {config.NOISE_MIN_FOOD})")
+          f"({n_scorable} scorable: n_food_area >= {config.NOISE_MIN_FOOD})")
     return config.GRID_PATH
 
 
