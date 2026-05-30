@@ -134,7 +134,10 @@ export default function EstablishmentsList({ points, type }) {
                 {/* Unnamed places: shown as a count when expanded, or when the
                     group has no named places to list at all. */}
                 {unnamed > 0 && (isOpen || named.length === 0) && (
-                  <span className="establishments__item establishments__item--ghost">
+                  <span
+                    className="establishments__item establishments__item--ghost"
+                    title="Mapped in OpenStreetMap without a name tag — still counted in the score."
+                  >
                     {unnamed} unnamed
                   </span>
                 )}
@@ -144,6 +147,7 @@ export default function EstablishmentsList({ points, type }) {
                   <button
                     type="button"
                     className="establishments__more"
+                    aria-expanded={isOpen}
                     onClick={() => toggle(group.id)}
                   >
                     +{collapsedMore} more
@@ -153,6 +157,7 @@ export default function EstablishmentsList({ points, type }) {
                   <button
                     type="button"
                     className="establishments__more"
+                    aria-expanded={isOpen}
                     onClick={() => toggle(group.id)}
                   >
                     Show fewer

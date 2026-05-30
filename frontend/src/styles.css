@@ -78,9 +78,10 @@
   --fs-base: 14px;
   --fs-lg: 15px;
   --fs-xl: 16px;
+  /* Top of the scale jumps 16 -> 18 -> hero(44): the old 19px/20px steps each
+     had a single use and sat 1px apart, muddying the hierarchy, so they were
+     folded into 18 (the modal title and panel close now share --fs-2xl). */
   --fs-2xl: 18px;
-  --fs-3xl: 19px;
-  --fs-4xl: 20px;
   --fs-hero: 44px;
   /* Tracking presets: tight on headings/numbers, open on eyebrows/labels. */
   --tracking-tight: -0.012em;
@@ -887,7 +888,8 @@ body {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  font-size: var(--fs-4xl);
+  /* Matches the compare close + top-zones chevron glyph size (--fs-2xl). */
+  font-size: var(--fs-2xl);
   line-height: var(--lh-none);
   cursor: pointer;
   flex: 0 0 auto;
@@ -1103,7 +1105,7 @@ body {
 
 .overlay__title {
   margin: var(--space-xl) 0 0;
-  font-size: var(--fs-3xl);
+  font-size: var(--fs-2xl);
   font-weight: var(--fw-bold);
 }
 
@@ -1467,7 +1469,8 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: var(--fs-md);
+  /* Peer of .compare__title (both are floating-panel titles) — same size. */
+  font-size: var(--fs-base);
   font-weight: var(--fw-bold);
 }
 
@@ -1955,16 +1958,18 @@ body {
   color: var(--accent-ink);
 }
 
-/* "+N more" and "N unnamed" read as a quiet ghost chip, not loose text. */
+/* "N unnamed" is a PASSIVE annotation, not a control — so it must not look
+   clickable. It reads as a muted italic note (solid faint surface, no dashed
+   border) so the dashed pill stays reserved for the interactive reveal below. */
 .establishments__item--ghost,
 .establishments__group.is-focus .establishments__item--ghost {
-  background: transparent;
-  border: 1px dashed var(--line);
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
   color: var(--ink-faint);
-  font-weight: var(--fw-medium);
+  font-style: italic;
 }
 
-/* Clickable "+N more" / "Show fewer" — a ghost chip that reveals the full list. */
+/* Clickable "+N more" / "Show fewer" — the one dashed pill, signalling "expand". */
 .establishments__more {
   font: inherit;
   font-size: var(--fs-md);
