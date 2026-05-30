@@ -1,22 +1,151 @@
 :root {
   --bg: #f6f7f9;
   --surface: #ffffff;
+  /* Faintly cool-tinted surface for headers / nested blocks so cards read in
+     subtle layers rather than one flat white. */
+  --surface-2: #f3f5f8;
   --ink: #1f2933;
   --ink-soft: #52606d;
-  --ink-faint: #7b8794;
+  /* Muted secondary text. Darkened from #7b8794 (which sat at 3.66:1 on white,
+     below WCAG AA) to clear 4.5:1 on white (5.11:1) AND on every tint/fill
+     surface it's used on (>=4.56:1) — captions, legend ticks, metric suffixes. */
+  --ink-faint: #646f7c;
   --line: #e4e7eb;
+  /* Hairline that reads crisp, not heavy, against white surfaces. */
+  --line-soft: #eceef1;
+
+  /* Accent: green base, with a teal companion for the gradient. The darker
+     --accent-ink is the only one used for text-on-tint (AA-safe on light
+     tints). White text is only ever placed on --accent / the gradient's dark
+     (green) end — see contrast notes. */
   --accent: #1a7f56;
   --accent-ink: #0f5c3d;
-  --shadow: 0 8px 30px rgba(15, 23, 32, 0.12);
-  --shadow-sm: 0 2px 10px rgba(15, 23, 32, 0.08);
+  /* Brighter teal for DECORATIVE gradients only (brand tile, toggle track) —
+     no text sits on it, so its contrast isn't a text concern. */
+  --accent-teal: #0e9488;
+  /* Text-safe teal: white text clears WCAG AA (>=4.5:1) at every stop between
+     this and --accent green, so --accent-grad can safely carry white labels. */
+  --accent-teal-text: #0d7d72;
+  /* Green -> text-safe teal. Used wherever the gradient carries white text
+     (active buttons, hero score). White clears AA across the whole sweep. */
+  --accent-grad: linear-gradient(135deg, #1a7f56 0%, #0d7d72 100%);
+  /* Brighter, decorative-only sweep for surfaces with no text on them. */
+  --accent-grad-vivid: linear-gradient(135deg, #1a7f56 0%, #0e9488 100%);
+  /* Subtle accent wash for active/selected tints (replaces ad-hoc #e8f5ee). */
+  --accent-tint: #e8f5ee;
+  --accent-tint-2: #f3f9f5;
+  --accent-line: #bfe3cf;
+  /* Neutral interactive fills (replace ad-hoc #f0f2f4 / #e4e7eb / #cbd2d9). */
+  --fill: #f0f2f4;
+  --fill-hover: #e4e7eb;
+  --line-strong: #cbd2d9;
+
+  /* Layered, soft elevation — two stacked shadows read more natural than one
+     flat blur (a tight contact shadow + a wider ambient one). */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 32, 0.05),
+    0 2px 8px rgba(15, 23, 32, 0.06);
+  --shadow: 0 1px 2px rgba(15, 23, 32, 0.06),
+    0 6px 16px rgba(15, 23, 32, 0.08), 0 16px 40px rgba(15, 23, 32, 0.07);
+  --shadow-md: 0 2px 4px rgba(15, 23, 32, 0.07),
+    0 10px 24px rgba(15, 23, 32, 0.1), 0 24px 56px rgba(15, 23, 32, 0.09);
+
   --radius: 14px;
   --radius-sm: 10px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+
+  /* Spacing scale — the single source of truth for gap / padding / internal
+     margin. Every value here matches one already in use, so applying a token is
+     a rename (no reflow). One-off optical values that don't fall on the scale
+     are left literal with a comment explaining why. */
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 6px;
+  --space-sm: 8px;
+  --space-md: 10px;
+  --space-lg: 12px;
+  --space-xl: 14px;
+  --space-2xl: 16px;
+  --space-3xl: 18px;
+  --space-4xl: 20px;
+  --space-5xl: 24px;
+
+  /* Type scale — every font-size in the app maps to one of these steps. Half-px
+     sizes were snapped to the nearest whole step (see notes) to kill sub-pixel
+     rendering; whole-px sizes each keep their own token so nothing resizes. */
+  --fs-2xs: 10px; /* tiny tags / micro-labels (9.5 snapped up to 10) */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-base: 14px;
+  --fs-lg: 15px;
+  --fs-xl: 16px;
+  --fs-2xl: 18px;
+  --fs-3xl: 19px;
+  --fs-4xl: 20px;
+  --fs-hero: 44px;
+  /* Tracking presets: tight on headings/numbers, open on eyebrows/labels. */
+  --tracking-tight: -0.012em;
+  --tracking-hero: -0.025em;
+  --tracking-eyebrow: 0.05em;
+
+  /* Line-height scale — every line-height in the app maps to one of these roles.
+     --lh-none for single-line numerals/glyphs, --lh-tight for big display
+     headings, --lh-snug for compact chip text, --lh-body for prose/help copy. */
+  --lh-none: 1;
+  --lh-tight: 1.2;
+  --lh-snug: 1.3;
+  --lh-body: 1.5;
+
+  /* Weight scale. --fw-medium is the single de-emphasis weight for muted
+     secondary captions/suffixes; --fw-bold for headings/labels; --fw-heavy is
+     reserved for the top of the hierarchy (hero score, leaderboard numbers). */
+  --fw-normal: 400;
+  --fw-medium: 600;
+  --fw-bold: 700;
+  --fw-heavy: 800;
+
+  /* Body stack stays system; the brand/headline stack prefers SF Pro Rounded
+     style faces where present, all system-resident so the app stays offline. */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
     Arial, sans-serif;
+  --font-rounded: ui-rounded, 'SF Pro Rounded', -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  font-family: var(--font-sans);
+}
+
+/* Numbers that read as data (scores, metrics, ticks) line up in columns. */
+.brand__name,
+.legend__type,
+.top-zones__rank,
+.top-zones__chip,
+.top-zones__count,
+.legend__ticks,
+.panel__index-value,
+.panel__index-unit,
+.panel__metric-value,
+.compare__table td,
+.compare__unit,
+.diet-cov,
+.blend__slider-value {
+  font-variant-numeric: tabular-nums;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Visually hidden but exposed to screen readers (for "Best:" cell prefixes and
+   similar AT-only labels). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 html,
@@ -59,7 +188,7 @@ body {
   max-width: calc(100vw - 32px);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-lg);
 }
 
 /* Desktop safety net: never let the controls column exceed the viewport, so
@@ -79,7 +208,7 @@ body {
 .controls__body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-lg);
 }
 
 /* The Filters toggle only exists on mobile; hidden on desktop so the layout
@@ -91,16 +220,31 @@ body {
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  /* Off-scale 11px gap/padding: tuned to center the 34px brand-mark tile in the
+     bar; on-scale 10/12 would shift the lockup. Left as an optical constant. */
+  gap: 11px;
   background: var(--surface);
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  padding: 12px 14px;
+  padding: 11px 14px;
 }
 
+/* Emoji pin sits on a rounded gradient tile so the brand mark reads as a
+   crafted logo lockup rather than a loose glyph. */
 .brand__mark {
-  font-size: 22px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: var(--accent-grad-vivid);
+  box-shadow: 0 1px 2px rgba(15, 23, 32, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-none);
 }
 
 .brand__text {
@@ -109,24 +253,26 @@ body {
 }
 
 .brand__name {
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: -0.01em;
+  font-family: var(--font-rounded);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-xl);
+  letter-spacing: var(--tracking-tight);
 }
 
 .brand__sub {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--ink-faint);
 }
 
 /* Type switch */
 .type-switch {
   display: flex;
-  gap: 6px;
+  gap: var(--space-xs);
   background: var(--surface);
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  padding: 6px;
+  padding: var(--space-xs);
 }
 
 .type-switch__btn {
@@ -134,7 +280,9 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-3xs);
+  /* Off-scale 9px vertical: keeps the stacked emoji+label segmented button at
+     its tuned height/aspect; snapping to 8/10 would change the control size. */
   padding: 9px 4px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -142,35 +290,41 @@ body {
   color: var(--ink-soft);
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .type-switch__btn:hover {
-  background: #f0f2f4;
+  background: var(--fill);
 }
 
+/* Active type carries the accent gradient as a solid affordance — white text
+   sits on the dark-green leading edge so it clears AA. */
 .type-switch__btn.is-active {
-  background: #e8f5ee;
-  color: var(--accent-ink);
-  border-color: #bfe3cf;
+  background: var(--accent-grad);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 1px 2px rgba(15, 23, 32, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .type-switch__emoji {
-  font-size: 18px;
-  line-height: 1;
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-none);
 }
 
 /* AI toggle: a switch + label in its own card (matches the other control cards). */
 .ai-toggle {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-md);
   background: var(--surface);
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  padding: 12px 14px;
+  padding: var(--space-lg) var(--space-xl);
   cursor: pointer;
 }
 
@@ -187,7 +341,7 @@ body {
   width: 36px;
   height: 20px;
   border-radius: 999px;
-  background: #cbd2d9;
+  background: var(--line-strong);
   transition: background 0.15s ease;
 }
 
@@ -205,7 +359,7 @@ body {
 }
 
 .ai-toggle input:checked + .ai-toggle__switch {
-  background: var(--accent);
+  background: var(--accent-grad-vivid);
 }
 
 .ai-toggle input:checked + .ai-toggle__switch::after {
@@ -221,8 +375,8 @@ body {
 .blend__note code,
 .legend__footnote code,
 .panel__disclaimer code {
-  background: #eef1f3;
-  padding: 0 4px;
+  background: var(--surface-2);
+  padding: 0 var(--space-2xs);
   border-radius: 4px;
   font-size: 0.92em;
 }
@@ -230,17 +384,18 @@ body {
 /* ---------- Dietary lens select ---------- */
 .lens-select {
   background: var(--surface);
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  padding: 12px 14px;
+  padding: var(--space-lg) var(--space-xl);
 }
 
 .lens-select__label {
   display: block;
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-md);
   color: var(--ink);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-xs);
 }
 
 .lens-select__control {
@@ -249,16 +404,18 @@ body {
   -webkit-appearance: none;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background: #f7f8fa;
+  background: var(--surface-2);
   color: var(--ink);
   font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 12px;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  padding: var(--space-sm) var(--space-lg);
   cursor: pointer;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='%237b8794' d='M2 4l4 4 4-4z'/></svg>");
   background-repeat: no-repeat;
   background-position: right 10px center;
+  /* Off-scale 28px: functional clearance for the dropdown chevron SVG at right
+     10px (10 + 12 glyph + gap). Not a spacing-scale concern. */
   padding-right: 28px;
 }
 
@@ -268,30 +425,31 @@ body {
 }
 
 .lens-select__note {
-  margin: 10px 0 0;
-  font-size: 11.5px;
-  line-height: 1.45;
+  margin: var(--space-md) 0 0;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
   color: var(--ink-faint);
 }
 
 /* ---------- Scoring blend ---------- */
 .blend {
   background: var(--surface);
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  padding: 12px 14px;
+  padding: var(--space-lg) var(--space-xl);
 }
 
 .blend__head {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .blend__title {
-  margin: 0 0 2px;
-  font-weight: 600;
-  font-size: 13px;
+  margin: 0 0 var(--space-3xs);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-md);
   color: var(--ink);
 }
 
@@ -304,11 +462,11 @@ body {
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink-faint);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-sans);
   font-style: italic;
-  font-weight: 700;
-  font-size: 12px;
-  line-height: 1;
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-none);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -326,57 +484,60 @@ body {
 }
 
 .blend__info {
-  margin: 0 0 8px;
-  font-size: 12px;
-  line-height: 1.5;
+  margin: 0 0 var(--space-sm);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
   color: var(--ink-soft);
-  background: #f8f9fb;
+  background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: var(--space-md) var(--space-lg);
 }
 
 .blend__lead {
-  margin: 0 0 8px;
-  font-size: 11.5px;
+  margin: 0 0 var(--space-sm);
+  font-size: var(--fs-sm);
   color: var(--ink-faint);
 }
 
 .blend__presets {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .blend__preset {
   flex: 1 1 auto;
-  padding: 6px 8px;
+  padding: var(--space-xs) var(--space-sm);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: #f0f2f4;
+  background: var(--fill);
   color: var(--ink-soft);
   cursor: pointer;
   font: inherit;
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   white-space: nowrap;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .blend__preset:hover {
-  background: #e4e7eb;
+  background: var(--fill-hover);
 }
 
 .blend__preset.is-active {
-  background: #e8f5ee;
-  color: var(--accent-ink);
-  border-color: #bfe3cf;
+  background: var(--accent-grad);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 1px 2px rgba(15, 23, 32, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 /* A clear disclosure toggle (label + round +/- badge) so it's obvious the
    weight sliders expand and collapse. */
 .blend__customize {
-  margin-top: 10px;
+  margin-top: var(--space-md);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -385,50 +546,47 @@ body {
   background: var(--surface);
   color: var(--accent-ink);
   font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
   cursor: pointer;
-  padding: 8px 12px;
+  padding: var(--space-sm) var(--space-lg);
   border-radius: var(--radius-sm);
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .blend__customize:hover {
-  background: #f0f2f4;
-  border-color: #cbd2d9;
+  background: var(--fill);
+  border-color: var(--line-strong);
 }
 
 .blend__customize-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #e8f5ee;
+  flex: 0 0 auto;
+  width: 16px;
+  text-align: center;
   color: var(--accent-ink);
-  font-size: 17px;
-  line-height: 1;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-none);
 }
 
 .blend__sliders {
-  margin-top: 8px;
+  margin-top: var(--space-sm);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .blend__slider {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 4px 8px;
-  font-size: 12px;
+  gap: var(--space-2xs) var(--space-sm);
+  font-size: var(--fs-sm);
   color: var(--ink-soft);
 }
 
 .blend__slider-label {
-  font-weight: 600;
+  font-weight: var(--fw-medium);
 }
 
 .blend__slider input[type='range'] {
@@ -439,27 +597,28 @@ body {
 }
 
 .blend__slider-value {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   color: var(--ink);
 }
 
 .blend__reset {
-  margin-top: 2px;
+  margin-top: var(--space-3xs);
   align-self: flex-start;
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink-soft);
   border-radius: 999px;
+  /* Off-scale 5px vertical: optical pill height for a 999px-radius button. */
   padding: 5px 12px;
   font: inherit;
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   cursor: pointer;
 }
 
 .blend__reset:hover {
-  background: #f0f2f4;
+  background: var(--fill);
   color: var(--ink);
 }
 
@@ -471,9 +630,9 @@ body {
 }
 
 .blend__note {
-  margin: 10px 0 0;
-  font-size: 11.5px;
-  line-height: 1.45;
+  margin: var(--space-md) 0 0;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
   color: var(--ink-faint);
 }
 
@@ -485,17 +644,18 @@ body {
   background: var(--surface);
   color: var(--accent-ink);
   border-radius: 999px;
+  /* Off-scale 5px vertical: optical pill height for a 999px-radius button. */
   padding: 5px 12px;
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .share-btn:hover {
-  background: #e8f5ee;
-  border-color: #bfe3cf;
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
 }
 
 .share-btn:focus-visible {
@@ -506,13 +666,13 @@ body {
 .ai-toggle__text {
   display: flex;
   flex-direction: column;
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-md);
 }
 
 .ai-toggle__hint {
-  font-weight: 400;
-  font-size: 11px;
+  font-weight: var(--fw-normal);
+  font-size: var(--fs-xs);
   color: var(--ink-faint);
 }
 
@@ -525,9 +685,16 @@ body {
   width: 288px;
   max-width: calc(100vw - 32px);
   background: var(--surface);
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 14px 16px;
+  padding: var(--space-xl) var(--space-2xl);
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.legend:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 /* Header: eyebrow + type label on the left, optional lens badge on the right. */
@@ -535,50 +702,52 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .legend__title {
   display: flex;
   flex-direction: column;
+  /* Off-scale 1px (below the scale): hairline stack of eyebrow over title. */
   gap: 1px;
   min-width: 0;
 }
 
 .legend__eyebrow {
-  font-size: 10.5px;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-eyebrow);
   color: var(--ink-faint);
 }
 
 .legend__type {
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.2;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
   color: var(--ink);
-  letter-spacing: -0.01em;
+  letter-spacing: var(--tracking-tight);
   overflow-wrap: break-word;
 }
 
 .legend__badge {
   flex: 0 0 auto;
+  /* Off-scale 1px (below the scale): optical nudge aligning the badge baseline. */
   margin-top: 1px;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-bold);
   color: var(--accent-ink);
-  background: #e8f5ee;
-  border: 1px solid #bfe3cf;
+  background: var(--accent-tint);
+  border: 1px solid var(--accent-line);
   border-radius: 999px;
-  padding: 2px 8px;
+  padding: var(--space-3xs) var(--space-sm);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-eyebrow);
   white-space: nowrap;
 }
 
 .legend__scale {
-  margin-top: 10px;
+  margin-top: var(--space-md);
 }
 
 .legend__bar {
@@ -598,17 +767,19 @@ body {
 .legend__ticks {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--ink-faint);
+  /* Off-scale 5px: tight optical gap from the gradient bar to its tick labels. */
   margin-top: 5px;
 }
 
 .legend__nodata {
   display: flex;
   align-items: center;
+  /* Off-scale 7px: optical gap centering the swatch against the label. */
   gap: 7px;
-  margin-top: 10px;
-  font-size: 11.5px;
+  margin-top: var(--space-md);
+  font-size: var(--fs-sm);
   color: var(--ink-faint);
 }
 
@@ -621,18 +792,18 @@ body {
 }
 
 .legend__hint {
-  margin: 10px 0 0;
-  font-size: 12px;
+  margin: var(--space-md) 0 0;
+  font-size: var(--fs-sm);
   color: var(--ink-soft);
 }
 
 .legend__footnote {
-  margin: 8px 0 0;
-  font-size: 11px;
-  line-height: 1.45;
+  margin: var(--space-sm) 0 0;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-body);
   color: var(--ink-faint);
   border-top: 1px solid var(--line);
-  padding-top: 8px;
+  padding-top: var(--space-sm);
 }
 
 /* ---------- Spot panel (right) ---------- */
@@ -645,9 +816,10 @@ body {
   width: 340px;
   max-width: calc(100vw - 32px);
   background: var(--surface);
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 18px 20px;
+  box-shadow: var(--shadow-md);
+  padding: var(--space-3xl) var(--space-4xl);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -656,7 +828,7 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-lg);
 }
 
 .panel__heading {
@@ -664,17 +836,17 @@ body {
 }
 
 .panel__eyebrow {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-eyebrow);
   color: var(--accent-ink);
 }
 
 .panel__id {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--ink-faint);
-  margin-top: 2px;
+  margin-top: var(--space-3xs);
   /* Long sector ids truncate rather than push the buttons off-row. */
   overflow: hidden;
   text-overflow: ellipsis;
@@ -684,7 +856,7 @@ body {
 .panel__actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   flex: 0 0 auto;
 }
 
@@ -693,37 +865,37 @@ body {
   background: var(--surface);
   color: var(--ink-soft);
   height: 30px;
-  padding: 0 12px;
+  padding: 0 var(--space-lg);
   border-radius: 999px;
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .panel__action:hover {
-  background: #f0f2f4;
+  background: var(--fill);
   color: var(--ink);
-  border-color: #cbd2d9;
+  border-color: var(--line-strong);
 }
 
 .panel__close {
   border: none;
-  background: #f0f2f4;
+  background: var(--fill);
   color: var(--ink-soft);
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  font-size: 20px;
-  line-height: 1;
+  font-size: var(--fs-4xl);
+  line-height: var(--lh-none);
   cursor: pointer;
   flex: 0 0 auto;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
 .panel__close:hover {
-  background: #e4e7eb;
+  background: var(--fill-hover);
   color: var(--ink);
 }
 
@@ -739,48 +911,63 @@ body {
 }
 
 .panel__index {
-  margin-top: 14px;
-  padding: 14px 16px;
-  background: linear-gradient(135deg, #e8f5ee, #f3f9f5);
+  margin-top: var(--space-xl);
+  padding: var(--space-2xl) var(--space-3xl);
+  background: linear-gradient(135deg, var(--accent-tint), var(--accent-tint-2));
   border-radius: var(--radius-sm);
-  border: 1px solid #d6ecdf;
+  border: 1px solid var(--accent-line);
 }
 
+/* Hero stat: the score reads as the focal point. Gradient-clipped numerals on
+   capable browsers; --accent-ink is the painted fallback color (AA on the
+   light tint), and font-rounded + tight tracking give it presence. */
 .panel__index-value {
-  font-size: 40px;
-  font-weight: 800;
-  line-height: 1;
+  font-family: var(--font-rounded);
+  font-size: var(--fs-hero);
+  font-weight: var(--fw-heavy);
+  line-height: var(--lh-none);
   color: var(--accent-ink);
-  letter-spacing: -0.02em;
+  letter-spacing: var(--tracking-hero);
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
+/* The "no score" state must stay readable — no gradient clip, solid muted ink. */
 .panel__index-value--muted {
   color: var(--ink-faint);
+  background: none;
+  -webkit-text-fill-color: currentColor;
 }
 
 .panel__index-unit {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-medium);
   color: var(--ink-faint);
-  margin-left: 4px;
+  margin-left: var(--space-2xs);
+  /* Reset the clip inherited from the hero value so the unit stays solid. */
+  -webkit-text-fill-color: currentColor;
+  background: none;
+  letter-spacing: 0;
 }
 
 .panel__index-note {
-  margin-top: 6px;
-  font-size: 12px;
+  margin-top: var(--space-xs);
+  font-size: var(--fs-sm);
   color: var(--ink-soft);
 }
 
 .panel__section {
-  margin-top: 18px;
+  margin-top: var(--space-3xl);
 }
 
 .panel__section-title {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 700;
+  margin: 0 0 var(--space-sm);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-eyebrow);
   color: var(--ink-faint);
 }
 
@@ -790,6 +977,8 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
+  /* Functional 1px (below the spacing scale): the --line background shows
+     through as a hairline divider between rows. Not a spacing token. */
   gap: 1px;
   background: var(--line);
   border-radius: var(--radius-sm);
@@ -800,43 +989,45 @@ body {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-lg);
+  /* Off-scale 9px vertical: tuned metric-row height for the label/value
+     baseline rhythm; on-scale 8/10 would shift the list density. */
   padding: 9px 12px;
   background: var(--surface);
 }
 
 .panel__metric-label {
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--ink-soft);
 }
 
 .panel__metric-value {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-bold);
   color: var(--ink);
   white-space: nowrap;
 }
 
 .panel__metric-suffix {
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-normal);
   color: var(--ink-faint);
-  margin-left: 2px;
+  margin-left: var(--space-3xs);
 }
 
 /* Why this zone */
 .panel__why {
-  background: #f8f9fb;
+  background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 12px 14px;
+  padding: var(--space-lg) var(--space-xl);
 }
 
 .panel__why-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .panel__why .panel__section-title {
@@ -844,46 +1035,47 @@ body {
 }
 
 .panel__why-text {
-  margin: 8px 0 0;
-  font-size: 13.5px;
-  line-height: 1.5;
+  margin: var(--space-sm) 0 0;
+  font-size: var(--fs-base);
+  line-height: var(--lh-body);
   color: var(--ink);
 }
 
 .panel__ai-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
+  gap: var(--space-xs);
+  font-size: var(--fs-xs);
   color: var(--ink-faint);
 }
 
 .panel__ai-badge {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-heavy);
+  letter-spacing: var(--tracking-eyebrow);
   color: #5b3fb0;
   background: #efe9fb;
   border-radius: 999px;
+  /* Off-scale 7px horizontal: optical micro-pill padding for the AI badge. */
   padding: 2px 7px;
 }
 
 .panel__spinner {
   width: 12px;
   height: 12px;
-  border: 2px solid #cbd2d9;
+  border: 2px solid var(--line-strong);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
 .panel__disclaimer {
-  margin: 16px 0 0;
-  font-size: 11px;
-  line-height: 1.5;
+  margin: var(--space-2xl) 0 0;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-body);
   color: var(--ink-faint);
   border-top: 1px solid var(--line);
-  padding-top: 12px;
+  padding-top: var(--space-lg);
 }
 
 /* ---------- Overlays (loading / error) ---------- */
@@ -894,7 +1086,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: var(--space-5xl);
   background: rgba(246, 247, 249, 0.82);
   backdrop-filter: blur(3px);
 }
@@ -903,21 +1095,22 @@ body {
   background: var(--surface);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  /* Off-scale 28/26px: generous optical inset for the centered modal card. */
   padding: 28px 26px;
   max-width: 380px;
   text-align: center;
 }
 
 .overlay__title {
-  margin: 14px 0 0;
-  font-size: 19px;
-  font-weight: 700;
+  margin: var(--space-xl) 0 0;
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-bold);
 }
 
 .overlay__text {
-  margin: 8px 0 0;
-  font-size: 13.5px;
-  line-height: 1.5;
+  margin: var(--space-sm) 0 0;
+  font-size: var(--fs-base);
+  line-height: var(--lh-body);
   color: var(--ink-soft);
 }
 
@@ -925,28 +1118,31 @@ body {
   display: inline-block;
   width: 34px;
   height: 34px;
-  border: 3px solid #dce0e4;
+  border: 3px solid var(--line);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.9s linear infinite;
 }
 
 .overlay__retry {
-  margin-top: 18px;
+  margin-top: var(--space-3xl);
   border: none;
-  background: var(--accent);
+  background: var(--accent-grad);
   color: #fff;
   font: inherit;
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-base);
+  /* Off-scale 22px horizontal: optical CTA-button padding (wider than tall). */
   padding: 10px 22px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background 0.15s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 32, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: filter 0.15s ease;
 }
 
 .overlay__retry:hover {
-  background: var(--accent-ink);
+  filter: brightness(0.94);
 }
 
 @keyframes spin {
@@ -981,8 +1177,8 @@ body {
     color: var(--accent-ink);
     border-radius: 999px;
     font: inherit;
-    font-size: 12px;
-    font-weight: 600;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
     cursor: pointer;
   }
 
@@ -1146,11 +1342,29 @@ body {
   }
 }
 
-/* Respect reduced-motion preferences. */
+/* Respect reduced-motion preferences: keep spinners static, skip the score-bar
+   mount animation (bars render at full width instantly), and drop the hover
+   lift transforms so reduced-motion users get instant, non-moving states. */
 @media (prefers-reduced-motion: reduce) {
   .overlay__spinner,
   .panel__spinner {
     animation: none;
+  }
+
+  .top-zones__bar > span {
+    animation: none;
+  }
+
+  .legend,
+  .top-zones,
+  .top-zones__item {
+    transition: none;
+  }
+
+  .legend:hover,
+  .top-zones:hover,
+  .top-zones__item:hover {
+    transform: none;
   }
 }
 
@@ -1158,47 +1372,53 @@ body {
 .city-select {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-md);
   background: var(--surface);
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  padding: 8px 10px 8px 14px;
+  padding: var(--space-sm) var(--space-md) var(--space-sm) var(--space-xl);
 }
 
 .city-select__label {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   color: var(--ink-faint);
 }
 
 .city-select__btns {
   display: flex;
-  gap: 6px;
+  gap: var(--space-xs);
   flex: 1;
 }
 
 .city-select__btn {
   flex: 1;
+  /* Off-scale 7px vertical: optical segmented-button height; on-scale 6/8 would
+     change the control size next to its neighbours. */
   padding: 7px 10px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: #f0f2f4;
+  background: var(--fill);
   color: var(--ink-soft);
   cursor: pointer;
   font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .city-select__btn:hover {
-  background: #e4e7eb;
+  background: var(--fill-hover);
 }
 
 .city-select__btn.is-active {
-  background: #e8f5ee;
-  color: var(--accent-ink);
-  border-color: #bfe3cf;
+  background: var(--accent-grad);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 1px 2px rgba(15, 23, 32, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 /* Light, consistent keyboard focus affordance across interactive controls. */
@@ -1218,9 +1438,16 @@ body {
   width: 288px;
   max-width: calc(100vw - 32px);
   background: var(--surface);
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   overflow: hidden;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.top-zones:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .top-zones__toggle {
@@ -1233,44 +1460,45 @@ body {
   color: var(--ink);
   font: inherit;
   cursor: pointer;
-  padding: 12px 14px;
+  padding: var(--space-lg) var(--space-xl);
 }
 
 .top-zones__title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 700;
+  gap: var(--space-sm);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
 }
 
 .top-zones__count {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   color: var(--accent-ink);
-  background: #e8f5ee;
-  border: 1px solid #bfe3cf;
+  background: var(--accent-tint);
+  border: 1px solid var(--accent-line);
   border-radius: 999px;
+  /* Off-scale 1px vertical (below the scale): keeps the count pill compact. */
   padding: 1px 8px;
 }
 
-/* Clear open/close affordance: a "+" badge when collapsed, "×" when expanded. */
+/* Clear open/close affordance: a bare "+" glyph when collapsed, "×" when
+   expanded. No chip/circle — just the glyph, with padding giving it a
+   comfortable tap target while reading as an inline affordance, not a button. */
 .top-zones__chevron {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #f0f2f4;
+  min-width: 24px;
+  padding: var(--space-3xs) var(--space-2xs);
   color: var(--ink-soft);
-  font-size: 18px;
-  line-height: 1;
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-none);
+  transition: color 0.15s ease;
 }
 
 .top-zones__toggle:hover .top-zones__chevron {
-  background: #e4e7eb;
   color: var(--ink);
 }
 
@@ -1282,7 +1510,7 @@ body {
 .top-zones__list {
   list-style: none;
   margin: 0;
-  padding: 0 6px 8px;
+  padding: 0 var(--space-xs) var(--space-sm);
   max-height: 40vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -1290,33 +1518,63 @@ body {
 
 .top-zones__item {
   display: grid;
-  grid-template-columns: 18px auto 1fr auto;
+  /* Fixed rank/sector/score columns so every row's bar starts and ends at the
+     same x (each <li> is its own grid, so "auto" made them misalign row-to-row).
+     Sector column is 124px so full 9-char codes (e.g. 11002E131) fit without
+     early ellipsis — the codes' distinguishing part is the suffix, so clipping
+     it made rows look identical. The bar (1fr) still has ample room. */
+  grid-template-columns: 18px 124px 1fr 32px;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
+  /* Off-scale 7px vertical: tuned leaderboard-row height that aligns with the
+     fixed (protected) column grid above; on-scale 6/8 would change row pitch. */
   padding: 7px 8px;
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background 0.12s ease;
+  transition: background 0.12s ease, box-shadow 0.12s ease,
+    transform 0.12s ease, border-color 0.12s ease;
 }
 
 .top-zones__item:hover {
-  background: #f0f2f4;
+  background: var(--fill);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
+/* The row is a keyboard-operable selector (role="button" tabindex="0"), so it
+   needs its own visible focus ring. */
+.top-zones__item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Selected row reads as a clear, ringed state (tint + accent hairline). */
 .top-zones__item.is-selected {
-  background: #e8f5ee;
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
+}
+
+/* Rank-1 gets a quiet accent treatment so the strongest signal stands out
+   without shouting. */
+.top-zones__item:first-child {
+  background: var(--accent-tint-2);
+}
+
+.top-zones__item:first-child .top-zones__rank {
+  color: var(--accent-ink);
 }
 
 .top-zones__rank {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   color: var(--ink-faint);
   text-align: right;
 }
 
 .top-zones__sector {
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
   color: var(--ink);
   max-width: 128px;
   overflow: hidden;
@@ -1324,50 +1582,79 @@ body {
   white-space: nowrap;
 }
 
-/* Small muted label so the codes read clearly as sector names, not raw numbers. */
+/* Small muted label so the codes read clearly as sector names, not raw numbers.
+   The tag stays an inline span (so the cell's text-overflow:ellipsis keeps
+   working on the bare id text node beside it); a small vertical-align lift
+   optically centers the smaller uppercase cap-height against the larger id. */
 .top-zones__sector-tag {
-  font-size: 9.5px;
-  font-weight: 700;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-eyebrow);
   color: var(--ink-faint);
+  vertical-align: 0.06em;
+  /* No right margin: the JSX already renders a space after the tag, and the
+     uppercase tracking adds trailing space — an extra margin only cost the id
+     ~2px and pushed longer codes (e.g. 11002E131) into early ellipsis. */
 }
 
 .top-zones__bar {
   display: block;
   height: 6px;
   border-radius: 999px;
-  background: #e4e7eb;
+  background: var(--fill-hover);
   overflow: hidden;
 }
 
+/* The fill width is set inline (relative to the top score). The accent gradient
+   is the brand affordance here; it grows in from the left on mount via a
+   scaleX keyframe (transform animates the visible width without touching the
+   inline `width`). */
 .top-zones__bar > span {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #91cf60, #1a9850);
+  background: var(--accent-grad);
+  transform-origin: left center;
+  animation: bar-grow 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 
 .top-zones__chip {
-  font-size: 12px;
-  font-weight: 800;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-heavy);
   color: var(--accent-ink);
   min-width: 22px;
   text-align: right;
 }
 
 .top-zones__cmp {
-  grid-column: 1 / -1;
+  /* Start under the sector column (col 2) so "+ compare" shares the same left
+     edge as the SECTOR label above it, instead of the rank column. */
+  grid-column: 2 / -1;
   justify-self: start;
-  margin-top: 2px;
+  /* >=24px tall so it meets WCAG 2.5.8 (Target Size) on desktop too, not just
+     the mobile min-height rule. inline-flex keeps the label vertically centred. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  margin-top: var(--space-3xs);
   border: 1px solid transparent;
   background: transparent;
   color: var(--ink-soft);
   font: inherit;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
   cursor: pointer;
-  padding: 2px 8px;
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: 999px;
   transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
@@ -1393,9 +1680,10 @@ body {
   z-index: 14;
   width: min(720px, calc(100vw - 32px));
   background: var(--surface);
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 14px 16px;
+  box-shadow: var(--shadow-md);
+  padding: var(--space-xl) var(--space-2xl);
   max-height: 56vh;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
@@ -1405,20 +1693,20 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
 }
 
 .compare__title {
   margin: 0;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-bold);
 }
 
 .compare__actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .compare__clear {
@@ -1426,32 +1714,34 @@ body {
   background: var(--surface);
   color: var(--ink-soft);
   border-radius: 999px;
+  /* Off-scale 5px vertical: optical pill height for a 999px-radius button. */
   padding: 5px 12px;
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   cursor: pointer;
 }
 
 .compare__clear:hover {
-  background: #f0f2f4;
+  background: var(--fill);
   color: var(--ink);
 }
 
 .compare__close {
   border: none;
-  background: #f0f2f4;
+  background: var(--fill);
   color: var(--ink-soft);
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  font-size: 18px;
-  line-height: 1;
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-none);
   cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .compare__close:hover {
-  background: #e4e7eb;
+  background: var(--fill-hover);
   color: var(--ink);
 }
 
@@ -1472,11 +1762,12 @@ body {
 .compare__table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 .compare__table th,
 .compare__table td {
+  /* Off-scale 7px vertical: optical table-cell rhythm; left as a tuned value. */
   padding: 7px 10px;
   text-align: center;
   border-bottom: 1px solid var(--line);
@@ -1488,33 +1779,40 @@ body {
 
 .compare__table tbody th[scope='row'] {
   text-align: left;
-  font-weight: 600;
+  font-weight: var(--fw-medium);
   color: var(--ink-soft);
   white-space: nowrap;
 }
 
 .compare__table td {
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   color: var(--ink);
 }
 
 .compare__table td.is-best {
-  background: #e8f5ee;
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+}
+
+/* Non-colour "best" marker so the winning cell isn't signalled by colour alone
+   (WCAG 1.4.1). The "Best:" prefix is screen-reader-only (.sr-only). */
+.compare__best-mark {
+  font-weight: var(--fw-bold);
   color: var(--accent-ink);
 }
 
 .compare__unit {
-  font-weight: 700;
-  font-size: 12px;
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-sm);
 }
 
 .compare__remove {
-  margin-left: 6px;
+  margin-left: var(--space-xs);
   border: none;
   background: transparent;
   color: var(--ink-faint);
-  font-size: 14px;
-  line-height: 1;
+  font-size: var(--fs-base);
+  line-height: var(--lh-none);
   cursor: pointer;
   padding: 0;
 }
@@ -1525,9 +1823,9 @@ body {
 
 /* ---------- Sector mini-map (in panel) ---------- */
 .sector-minimap {
-  margin-top: 14px;
-  padding: 8px;
-  background: #f7f8fa;
+  margin-top: var(--space-xl);
+  padding: var(--space-sm);
+  background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
 }
@@ -1539,8 +1837,8 @@ body {
 }
 
 .sector-minimap__cap {
-  margin-top: 4px;
-  font-size: 11px;
+  margin-top: var(--space-2xs);
+  font-size: var(--fs-xs);
   color: var(--ink-faint);
   text-align: center;
 }
@@ -1549,69 +1847,70 @@ body {
 .diet-cov-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
 }
 
 .diet-cov {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11.5px;
-  font-weight: 600;
+  gap: var(--space-2xs);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   color: var(--ink-soft);
-  background: #f0f2f4;
+  background: var(--fill);
   border: 1px solid var(--line);
   border-radius: 999px;
+  /* Off-scale 3px/9px: optical chip padding for a 999px-radius pill. */
   padding: 3px 9px;
 }
 
 .diet-cov.is-active {
   color: var(--accent-ink);
-  background: #e8f5ee;
-  border-color: #bfe3cf;
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
 }
 
 /* ---------- Establishments list (panel) ---------- */
 .establishments {
-  margin-top: 4px;
+  margin-top: var(--space-2xs);
 }
 
 .establishments__empty {
-  margin: 4px 0 0;
-  font-size: 12.5px;
+  margin: var(--space-2xs) 0 0;
+  font-size: var(--fs-md);
   color: var(--ink-faint);
 }
 
 .establishments__summary {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 600;
+  margin: 0 0 var(--space-sm);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   color: var(--ink-faint);
 }
 
 .establishments__group {
-  margin-bottom: 10px;
+  margin-bottom: var(--space-md);
 }
 
 /* The focus group (the type you're scoring for) gets a tinted, accent-edged
    container so "how many of my type are already here" is the easiest to find. */
 .establishments__group.is-focus {
-  background: #f3f9f5;
+  background: var(--accent-tint-2);
   border-left: 3px solid var(--accent);
   border-radius: var(--radius-sm);
-  padding: 6px 8px 4px;
+  padding: var(--space-xs) var(--space-sm) var(--space-2xs);
 }
 
 .establishments__heading {
-  margin: 0 0 4px;
-  font-size: 12px;
-  font-weight: 700;
+  margin: 0 0 var(--space-2xs);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
   color: var(--ink);
 }
 
 .establishments__heading span {
-  font-weight: 600;
+  font-weight: var(--fw-medium);
   color: var(--ink-faint);
 }
 
@@ -1624,21 +1923,22 @@ body {
 .establishments__items {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 6px;
-  margin-top: 2px;
+  gap: var(--space-xs) var(--space-xs);
+  margin-top: var(--space-3xs);
 }
 
 .establishments__item {
   display: inline-flex;
   align-items: center;
+  /* Off-scale 5px gap + 3px/9px padding: optical chip sizing (999px pill). */
   gap: 5px;
   max-width: 100%;
   padding: 3px 9px;
-  background: #f0f2f4;
+  background: var(--fill);
   border: 1px solid var(--line);
   border-radius: 999px;
-  font-size: 12px;
-  line-height: 1.3;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
   color: var(--ink-soft);
 }
 
@@ -1650,8 +1950,8 @@ body {
 /* Focus-group chips carry the accent palette so competitors of your own type
    are visible at a glance. */
 .establishments__group.is-focus .establishments__item {
-  background: #e8f5ee;
-  border-color: #bfe3cf;
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
   color: var(--accent-ink);
 }
 
@@ -1661,25 +1961,26 @@ body {
   background: transparent;
   border: 1px dashed var(--line);
   color: var(--ink-faint);
-  font-weight: 600;
+  font-weight: var(--fw-medium);
 }
 
 /* Clickable "+N more" / "Show fewer" — a ghost chip that reveals the full list. */
 .establishments__more {
   font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
   color: var(--accent-ink);
   background: transparent;
-  border: 1px dashed #bfe3cf;
+  border: 1px dashed var(--accent-line);
   border-radius: 999px;
+  /* Off-scale 11px horizontal: optical ghost-chip padding (999px pill). */
   padding: 4px 11px;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .establishments__more:hover {
-  background: #e8f5ee;
+  background: var(--accent-tint);
   border-color: var(--accent);
 }
 
@@ -1689,8 +1990,8 @@ body {
 }
 
 .diet-chip {
-  font-size: 11px;
-  line-height: 1;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-none);
 }
 
 /* ---------- Print: one-page summary of the selected sector ---------- */
@@ -1745,14 +2046,14 @@ body {
   }
 
   .panel__print-brand {
-    font-size: 18px;
-    font-weight: 800;
-    letter-spacing: -0.01em;
+    font-size: var(--fs-2xl);
+    font-weight: var(--fw-heavy);
+    letter-spacing: var(--tracking-tight);
   }
 
   .panel__print-meta {
     margin-top: 2px;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     color: #000;
   }
 
@@ -1784,6 +2085,9 @@ body {
   .panel__index-value,
   .panel__index-value--muted {
     color: #000 !important;
+    /* Undo the on-screen gradient-text clip so the score prints solid black. */
+    background: none !important;
+    -webkit-text-fill-color: #000 !important;
   }
 
   .panel__metrics {

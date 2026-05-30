@@ -19,6 +19,24 @@ function bestIndex(values, beats) {
   return best;
 }
 
+// One comparison cell. The winning cell is flagged by more than colour (which
+// alone fails WCAG 1.4.1): a visible ✓ marker plus a screen-reader-only "Best:"
+// prefix so colour-blind and AT users can both tell which column won.
+function CompareCell({ value, isBest, unitId, format }) {
+  const text = value == null ? '—' : format ? format(value) : value;
+  return (
+    <td className={isBest ? 'is-best' : ''}>
+      {isBest && <span className="sr-only">Best: </span>}
+      {isBest && (
+        <span className="compare__best-mark" aria-hidden="true">
+          ✓{' '}
+        </span>
+      )}
+      {text}
+    </td>
+  );
+}
+
 export default function Compare({
   items,
   type,
@@ -123,12 +141,11 @@ export default function Compare({
           <tr>
             <th scope="row">Opportunity</th>
             {oppValues.map((value, i) => (
-              <td
+              <CompareCell
                 key={items[i].unit_id}
-                className={i === oppBest ? 'is-best' : ''}
-              >
-                {value == null ? '—' : value}
-              </td>
+                value={value}
+                isBest={i === oppBest}
+              />
             ))}
           </tr>
 
@@ -136,12 +153,11 @@ export default function Compare({
             <tr key={row.key}>
               <th scope="row">{row.label}</th>
               {row.values.map((value, i) => (
-                <td
+                <CompareCell
                   key={items[i].unit_id}
-                  className={i === row.best ? 'is-best' : ''}
-                >
-                  {value == null ? '—' : value}
-                </td>
+                  value={value}
+                  isBest={i === row.best}
+                />
               ))}
             </tr>
           ))}
@@ -149,24 +165,23 @@ export default function Compare({
           <tr>
             <th scope="row">Nearest {type}</th>
             {gapValues.map((value, i) => (
-              <td
+              <CompareCell
                 key={items[i].unit_id}
-                className={i === gapBest ? 'is-best' : ''}
-              >
-                {value == null ? '—' : `${value} m`}
-              </td>
+                value={value}
+                isBest={i === gapBest}
+                format={(v) => `${v} m`}
+              />
             ))}
           </tr>
 
           <tr>
             <th scope="row">Competitors</th>
             {compValues.map((value, i) => (
-              <td
+              <CompareCell
                 key={items[i].unit_id}
-                className={i === compBest ? 'is-best' : ''}
-              >
-                {value == null ? '—' : value}
-              </td>
+                value={value}
+                isBest={i === compBest}
+              />
             ))}
           </tr>
 

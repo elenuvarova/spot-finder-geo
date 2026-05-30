@@ -91,14 +91,32 @@ export default function TopZones({
             const { feature, props, score } = item;
             const isSelected = props.unit_id === selectedId;
             const pct = Math.max(0, Math.min(100, (score / maxScore) * 100));
+            const select = () => {
+              onSelect(props);
+              onFocus(centroid(feature.geometry));
+            };
             return (
               <li
                 key={props.unit_id != null ? props.unit_id : i}
                 className={`top-zones__item${isSelected ? ' is-selected' : ''}`}
+                // Keyboard-operable selector: the row IS the control (the nested
+                // "+ compare" is a separate button). role+tabIndex+Enter/Space
+                // give keyboard users the same "inspect this sector" path the
+                // map click gives mouse users. The e.target guard stops key
+                // presses on the inner button from also selecting the row.
+                role="button"
+                tabIndex={0}
                 aria-current={isSelected ? 'true' : undefined}
-                onClick={() => {
-                  onSelect(props);
-                  onFocus(centroid(feature.geometry));
+                aria-label={`Select sector ${props.unit_id ?? ''}, opportunity score ${Math.round(
+                  score * 100,
+                )} of 100`}
+                onClick={select}
+                onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    select();
+                  }
                 }}
               >
                 <span className="top-zones__rank">{i + 1}</span>
