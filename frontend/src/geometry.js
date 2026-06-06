@@ -11,7 +11,8 @@
  * every part are averaged together (each vertex weighted equally).
  *
  * @param {object} geometry - a GeoJSON geometry (Polygon or MultiPolygon).
- * @returns {number[]} [lon, lat]; [0, 0] when there are no coordinates.
+ * @returns {number[]|null} [lon, lat], or null when there are no coordinates
+ *   (so callers don't fly to [0, 0] in the ocean off West Africa).
  */
 export function centroid(geometry) {
   let sumLon = 0;
@@ -37,7 +38,7 @@ export function centroid(geometry) {
     }
   }
 
-  if (count === 0) return [0, 0];
+  if (count === 0) return null;
   return [sumLon / count, sumLat / count];
 }
 

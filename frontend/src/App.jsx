@@ -80,10 +80,18 @@ export default function App() {
     if (seed.type) setType(seed.type);
     if (seed.lens) setLens(seed.lens);
     if (seed.blend) setBlend(seed.blend);
-    pendingRef.current = {
-      sel: seed.sel || null,
-      cmp: Array.isArray(seed.cmp) ? seed.cmp : null,
-    };
+    const pendingSel = seed.sel || null;
+    const pendingCmp = Array.isArray(seed.cmp) && seed.cmp.length ? seed.cmp : null;
+    // Only hold a pending object when there's actually something to apply later;
+    // otherwise leave it null so hash-sync isn't blocked (see the sync effect).
+    pendingRef.current = pendingSel || pendingCmp ? { sel: pendingSel, cmp: pendingCmp } : null;
+
+    // The hash is decoded; from here it's safe to keep the URL in sync with the
+    // app state. This must NOT depend on the spots fetch succeeding — otherwise a
+    // failed/slow load would disable hash-sync forever. Applying the pending
+    // deep-linked selection/compare is a separate concern handled when data
+    // arrives (and it clears pendingRef there).
+    hashReadyRef.current = true;
 
     getCities()
       .then((res) => {
@@ -133,9 +141,8 @@ export default function App() {
       if (propsList.length) setCompare(propsList);
     }
 
-    // Consume the pending state once and mark the hash safe to overwrite.
+    // Consume the pending state once. (hashReadyRef was already set at mount.)
     pendingRef.current = null;
-    hashReadyRef.current = true;
   }, [data]);
 
   const onCity = useCallback(
@@ -186,6 +193,10 @@ export default function App() {
   // Keep the URL hash in sync with the shareable state (debounced).
   useEffect(() => {
     if (!hashReadyRef.current) return;
+    // Don't overwrite the hash while a deep-linked selection/compare is still
+    // waiting to be applied from data — that would clobber the sel/cmp keys
+    // before they ever reach state. (pendingRef is cleared once consumed.)
+    if (pendingRef.current) return;
     const handle = setTimeout(() => {
       try {
         const hash = encodeState({
@@ -223,7 +234,7 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app">
+    <main className="app">
       {/* Map fills the viewport beneath the overlays. */}
       <MapView
         data={data}
@@ -245,9 +256,9 @@ export default function App() {
         <div className="brand">
           <span className="brand__mark" aria-hidden="true">📍</span>
           <div className="brand__text">
-            <span className="brand__name">SpotFinder</span>
+            <h1 className="brand__name">SpotFinder</h1>
             <span className="brand__sub">
-              {(cityView && cityView.name) || 'Antwerp'} · underserved demand
+              {(cityView && cityView.name) || 'Loading…'} · underserved demand
             </span>
           </div>
           <button
@@ -284,28 +295,34 @@ export default function App() {
             />
             <span className="ai-toggle__switch" aria-hidden="true" />
             <span className="ai-toggle__text">
-              ✨ AI explanations
+              <span aria-hidden="true">✨ </span>AI explanations
               <span className="ai-toggle__hint">template always works offline</span>
             </span>
           </label>
         </div>
       </div>
 
-      {/* Legend overlay (bottom-left). */}
-      {status === 'ready' && <Legend type={type} lens={lens} />}
-
-      {/* Top opportunities leaderboard (bottom-right). */}
+      {/* Bottom overlays. On desktop this wrapper is display:contents, so the
+          Legend (bottom-left) and TopZones (bottom-right) position exactly as
+          before. On mobile it becomes a bottom-anchored flex column so the two
+          stack with a real gap and can never overlap — no hardcoded pixel math
+          that assumes a fixed legend height (U3). */}
       {status === 'ready' && (
-        <TopZones
-          data={data}
-          type={type}
-          lens={lens}
-          blend={blend}
-          selectedId={selectedId}
-          onSelect={setSelected}
-          onFocus={(center) => setFocus({ center })}
-          onCompareAdd={addCompare}
-        />
+        <div className="bottom-stack">
+          <Legend type={type} lens={lens} hasSelection={!!selected} />
+          <TopZones
+            data={data}
+            type={type}
+            lens={lens}
+            blend={blend}
+            selectedId={selectedId}
+            compareFull={compare.length >= MAX_COMPARE}
+            compareLimit={MAX_COMPARE}
+            onSelect={setSelected}
+            onFocus={(center) => setFocus({ center })}
+            onCompareAdd={addCompare}
+          />
+        </div>
       )}
 
       {/* Compare bottom sheet. */}
@@ -327,11 +344,14 @@ export default function App() {
           props={selected}
           type={type}
           lens={lens}
+          blend={blend}
           aiMode={aiMode}
           selectedPointProps={selectedPointProps}
           selectedPointFeatures={selectedPointFeatures}
           features={data ? data.features : null}
           selectedId={selectedId}
+          compareCount={compare.length}
+          compareLimit={MAX_COMPARE}
           onCompareAdd={addCompare}
           onClose={() => setSelected(null)}
         />
@@ -342,7 +362,9 @@ export default function App() {
         <div className="overlay" role="status" aria-live="polite">
           <div className="overlay__card">
             <span className="overlay__spinner" aria-hidden="true" />
-            <h2 className="overlay__title">Loading Antwerp…</h2>
+            <h2 className="overlay__title">
+              Loading {(cityView && cityView.name) || 'map data'}…
+            </h2>
             <p className="overlay__text">
               Fetching demand signals. The backend may be waking up from sleep —
               this can take 30-50 seconds on the first request.
@@ -363,7 +385,7 @@ export default function App() {
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }
 

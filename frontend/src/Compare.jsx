@@ -3,8 +3,13 @@
 // presentational — every value comes through props, and scoring is delegated to
 // blend.js so the table always agrees with the choropleth.
 
+import { useEffect, useRef } from 'react';
 import { scoreFeature, DRIVERS } from './blend.js';
 import { getLens } from './lenses.js';
+
+// Hard cap on compared sectors. Mirrors MAX_COMPARE in App.jsx; kept here as a
+// defensive guard so the table never renders more columns than it's designed for.
+const MAX_ITEMS = 3;
 
 // Index of the best (winning) value in a list, given a comparison that returns
 // true when `a` beats `b`. Skips null/undefined values. Returns -1 if nothing
@@ -38,7 +43,7 @@ function CompareCell({ value, isBest, unitId, format }) {
 }
 
 export default function Compare({
-  items,
+  items: rawItems,
   type,
   lens,
   blend,
@@ -46,7 +51,36 @@ export default function Compare({
   onClear,
   onClose,
 }) {
-  if (!items || items.length === 0) return null;
+  // Non-modal overlay focus management (A1): move focus into the sheet on open,
+  // restore it on close, and close on Escape.
+  const sectionRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    const trigger = document.activeElement;
+    const node = sectionRef.current;
+    if (node) node.focus();
+
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        if (onCloseRef.current) onCloseRef.current();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      if (trigger && typeof trigger.focus === 'function' && document.contains(trigger)) {
+        trigger.focus();
+      }
+    };
+  }, []);
+
+  // Defensive: never render more than MAX_ITEMS columns even if more are passed.
+  const items = Array.isArray(rawItems) ? rawItems.slice(0, MAX_ITEMS) : [];
+  if (items.length === 0) return null;
 
   const lensMeta = lens ? getLens(lens) : null;
 
@@ -95,7 +129,7 @@ export default function Compare({
     : null;
 
   return (
-    <section className="compare" aria-label="Compare sectors">
+    <section className="compare" aria-label="Compare sectors" ref={sectionRef} tabIndex={-1}>
       <header className="compare__header">
         <h2 className="compare__title">Compare sectors</h2>
         <div className="compare__actions">

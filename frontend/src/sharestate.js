@@ -14,7 +14,7 @@
 //
 // Wire keys: c=city, t=type, l=lens, b=blend, s=sel, m=cmp.
 
-import { PRESETS } from './blend.js';
+import { PRESETS, presetBlend } from './blend.js';
 
 // Reverse lookup: which PRESETS name corresponds to a given blend object?
 // Used so a preset round-trips as 'p:NAME' rather than its raw weights.
@@ -68,7 +68,9 @@ function decodeBlend(raw) {
 
   if (raw.startsWith('p:')) {
     const name = raw.slice(2);
-    return PRESETS[name] || { mode: 'default' };
+    // Return a FRESH copy (presetBlend) so callers can't mutate the shared
+    // PRESETS singleton via the decoded blend object.
+    return PRESETS[name] ? presetBlend(name) : { mode: 'default' };
   }
 
   if (raw.startsWith('c:')) {

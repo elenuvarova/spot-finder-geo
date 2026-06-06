@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { explainTemplate, TYPE_LABELS } from './explainer.js';
 import { explain as explainApi } from './api.js';
 import { LENSES, getLens } from './lenses.js';
+import { scoreFeature } from './blend.js';
 import SectorMiniMap from './SectorMiniMap.jsx';
 import EstablishmentsList from './EstablishmentsList.jsx';
 
@@ -76,11 +77,14 @@ export default function SpotPanel({
   props,
   type,
   lens,
+  blend,
   aiMode,
   selectedPointProps,
   selectedPointFeatures,
   features,
   selectedId,
+  compareCount = 0,
+  compareLimit = 3,
   onCompareAdd,
   onClose,
 }) {
@@ -90,6 +94,34 @@ export default function SpotPanel({
   const [explanation, setExplanation] = useState(template);
   const [source, setSource] = useState('template');
   const [aiLoading, setAiLoading] = useState(false);
+
+  // Non-modal overlay focus management (A1): move focus into the panel on open,
+  // restore it to the element that opened the panel on close, and close on Esc.
+  const panelRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    const trigger = document.activeElement;
+    const node = panelRef.current;
+    if (node) node.focus();
+
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        if (onCloseRef.current) onCloseRef.current();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      // Restore focus to the triggering element if it's still in the document.
+      if (trigger && typeof trigger.focus === 'function' && document.contains(trigger)) {
+        trigger.focus();
+      }
+    };
+  }, []);
 
   // Recompute template + (optionally) request AI whenever the inputs change.
   useEffect(() => {
@@ -133,15 +165,19 @@ export default function SpotPanel({
 
   const label = TYPE_LABELS[type] || 'spot';
   const lensMeta = getLens(lens);
-  const oppValue = props[`opp_${type}`];
-  const oppNull = oppValue === null || oppValue === undefined;
+  // Headline matches the map/TopZones/Compare: scoreFeature applies the blend
+  // AND the lens (1 - coverage), so all four surfaces show the same number.
+  const oppScore = scoreFeature(props, type, lens, blend);
+  const oppNull = oppScore === null || oppScore === undefined;
   const inputs = keyInputs(type, props);
   const comp = fmtInt(props[`comp_${type}`]);
 
   const sectorId = props.unit_id || '—';
 
+  const compareFull = compareCount >= compareLimit;
+
   return (
-    <aside className="panel" aria-label="Zone details">
+    <aside className="panel" aria-label="Zone details" ref={panelRef} tabIndex={-1}>
       {/* Print-only summary header (hidden on screen, shown on paper). */}
       <div className="panel__print-header" aria-hidden="true">
         <div className="panel__print-brand">SpotFinder — {label}</div>
@@ -158,10 +194,15 @@ export default function SpotPanel({
             type="button"
             className="panel__action"
             onClick={() => onCompareAdd && onCompareAdd(props)}
-            aria-label="Add this sector to compare"
-            title="Add to compare"
+            disabled={compareFull}
+            aria-label={
+              compareFull
+                ? `Compare is full (${compareLimit} max)`
+                : 'Add this sector to compare'
+            }
+            title={compareFull ? `Compare is full (${compareLimit} max)` : 'Add to compare'}
           >
-            Compare
+            {compareFull ? `${compareLimit} max` : 'Compare'}
           </button>
           <button
             type="button"
@@ -196,13 +237,14 @@ export default function SpotPanel({
           <>
             <div className="panel__index-value panel__index-value--muted">—</div>
             <div className="panel__index-note">
-              Too few food establishments here to score reliably.
+              No nearby food activity to score against (or this sector is
+              uninhabitable).
             </div>
           </>
         ) : (
           <>
             <div className="panel__index-value">
-              {fmtIndex(oppValue)}
+              {fmtIndex(oppScore)}
               <span className="panel__index-unit">/100</span>
             </div>
             <div className="panel__index-note">
@@ -214,7 +256,7 @@ export default function SpotPanel({
       </div>
 
       <section className="panel__section">
-        <h3 className="panel__section-title">Key inputs</h3>
+        <h2 className="panel__section-title">Key inputs</h2>
         <ul className="panel__metrics">
           {inputs.map((m) => (
             <li key={m.key} className="panel__metric">
@@ -229,7 +271,7 @@ export default function SpotPanel({
       </section>
 
       <section className="panel__section">
-        <h3 className="panel__section-title">Competition &amp; diet coverage</h3>
+        <h2 className="panel__section-title">Competition &amp; diet coverage</h2>
         <ul className="panel__metrics">
           <li className="panel__metric">
             <span className="panel__metric-label">{label} competitors (nearby)</span>
@@ -260,13 +302,13 @@ export default function SpotPanel({
       </section>
 
       <section className="panel__section">
-        <h3 className="panel__section-title">What's here</h3>
+        <h2 className="panel__section-title">What's here</h2>
         <EstablishmentsList points={selectedPointProps} type={type} />
       </section>
 
       <section className="panel__section panel__why">
         <div className="panel__why-head">
-          <h3 className="panel__section-title">Why this zone?</h3>
+          <h2 className="panel__section-title">Why this zone?</h2>
           {aiMode && aiLoading && (
             <span className="panel__ai-status" aria-live="polite">
               <span className="panel__spinner" aria-hidden="true" /> thinking…
@@ -278,7 +320,11 @@ export default function SpotPanel({
             </span>
           )}
         </div>
-        <p className="panel__why-text">{explanation}</p>
+        {/* aria-live so the async AI text swap is announced to screen readers
+            (the "thinking…" status above is already polite). */}
+        <p className="panel__why-text" aria-live="polite">
+          {explanation}
+        </p>
       </section>
 
       <p className="panel__disclaimer">

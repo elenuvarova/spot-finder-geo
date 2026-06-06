@@ -2,13 +2,21 @@ import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { buildScoreExpression } from './blend.js';
+import {
+  NO_DATA_COLOR,
+  SELECTED_OUTLINE,
+  EATERY_COLOR,
+  NON_EATERY_COLOR,
+  rampInterpolateStops,
+} from './colors.js';
 
 // Free, no-API-key vector basemap.
 const STYLE_URL = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
 
-// Antwerp center.
-const CENTER = [4.4, 51.21];
-const ZOOM = 12;
+// Neutral fallback view used only until a city view (with its own center/zoom)
+// arrives. Roughly centered on Belgium so a deep-link to any city eases in.
+const FALLBACK_CENTER = [4.4, 50.85];
+const FALLBACK_ZOOM = 8;
 
 const SOURCE_ID = 'spots';
 const FILL_LAYER_ID = 'spots-fill';
@@ -21,33 +29,22 @@ const SEL_POINTS_LAYER_ID = 'sel-points-circles';
 
 const EMPTY_FC = { type: 'FeatureCollection', features: [] };
 
-// Grey shown when a hex has no opportunity value (n_food < 3 -> null).
-const NO_DATA_COLOR = '#cfd3d8';
-
 /**
  * Fill-color paint expression: red (low) -> green (high) across 0..1, and an
- * explicit grey when opp_<type> is null (no data / below the noise threshold).
+ * explicit grey when opp_<type> is null (the sector is not scorable).
  *
  * The score VALUE comes from blend.js' buildScoreExpression so the choropleth
  * always agrees with scoreFeature (the JS scorer used by TopZones/Compare).
+ * The ramp stops come from colors.js so the map and the legend share one ramp.
  */
 function fillColorExpression(type, lens, blend) {
   const value = buildScoreExpression(type, lens, blend);
   return [
     'case',
-    // opp_<type> is null when n_food < 3 -> render as no-data grey.
+    // opp_<type> is null when the sector is not scorable -> no-data grey.
     ['==', ['get', `opp_${type}`], null],
     NO_DATA_COLOR,
-    [
-      'interpolate',
-      ['linear'],
-      value,
-      0.0, '#d73027', // red — low opportunity
-      0.25, '#fc8d59',
-      0.5, '#fee08b', // amber — middling
-      0.75, '#91cf60',
-      1.0, '#1a9850', // green — high opportunity
-    ],
+    ['interpolate', ['linear'], value, ...rampInterpolateStops()],
   ];
 }
 
@@ -57,6 +54,7 @@ function fillColorExpression(type, lens, blend) {
 function fillOpacityExpression(type) {
   return [
     'case',
+    // Not scorable (opp_<type> null) -> fade the hex back.
     ['==', ['get', `opp_${type}`], null],
     0.18,
     0.6,
@@ -101,8 +99,10 @@ export default function Map({
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: STYLE_URL,
-      center: CENTER,
-      zoom: ZOOM,
+      // Start at the city view if we already have one, else a neutral fallback;
+      // the view effect below flies to the city once it's known.
+      center: (view && view.center) || FALLBACK_CENTER,
+      zoom: (view && view.zoom) || FALLBACK_ZOOM,
       attributionControl: true,
     });
     mapRef.current = map;
@@ -145,7 +145,7 @@ export default function Map({
         type: 'line',
         source: SOURCE_ID,
         paint: {
-          'line-color': '#1f2933',
+          'line-color': SELECTED_OUTLINE,
           'line-width': 2.5,
         },
         filter: ['==', ['get', 'unit_id'], '__none__'],
@@ -166,8 +166,8 @@ export default function Map({
           'circle-color': [
             'case',
             ['==', ['get', 'is_eatery'], true],
-            '#1a7f56',
-            '#7b8794',
+            EATERY_COLOR,
+            NON_EATERY_COLOR,
           ],
           'circle-stroke-color': '#ffffff',
           'circle-stroke-width': 1,
@@ -248,7 +248,7 @@ export default function Map({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !view || !view.center) return;
-    map.flyTo({ center: view.center, zoom: view.zoom ?? ZOOM, duration: 700 });
+    map.flyTo({ center: view.center, zoom: view.zoom ?? FALLBACK_ZOOM, duration: 700 });
   }, [view]);
 
   // Fly to a focused location (e.g. a TopZones / Compare row click).
@@ -261,5 +261,8 @@ export default function Map({
     map.flyTo({ center, zoom: focus.zoom ?? Math.max(map.getZoom(), 13), duration: 700 });
   }, [focus]);
 
-  return <div ref={containerRef} className="map-container" aria-label="Map of Antwerp" />;
+  const cityName = (view && view.name) || 'the selected city';
+  return (
+    <div ref={containerRef} className="map-container" aria-label={`Map of ${cityName}`} />
+  );
 }

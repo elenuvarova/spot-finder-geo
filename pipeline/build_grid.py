@@ -54,7 +54,6 @@ def _load_points():
             "is_retail": bool(p.get("is_retail")),
             "is_transit": bool(p.get("is_transit")),
             "is_office": bool(p.get("is_office")),
-            "vegan": bool(p.get("vegan")),
             "diet_vegan": bool(p.get("diet_vegan")),
             "diet_vegetarian": bool(p.get("diet_vegetarian")),
             "diet_glutenfree": bool(p.get("diet_glutenfree")),

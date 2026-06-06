@@ -1,29 +1,47 @@
 #!/usr/bin/env python3
 """Synthetic sample dataset generator for SpotFinder.
 
-Produces backend/data/antwerpen.geojson: a WGS84 / EPSG:4326 FeatureCollection
-of ~60 pointy-top hexagon cells tiling a bounding box around Antwerp.
+Produces a WGS84 / EPSG:4326 FeatureCollection of ~60 pointy-top hexagon cells
+tiling a bounding box around Antwerp, carrying the FULL property schema the real
+pipeline emits (see the GeoJSON CONTRACT in the project docs).
 
 This is SYNTHETIC data so the backend and frontend can be developed and tested
-before the real pipeline runs. Every cell carries the full property schema the
-real pipeline must agree on (see the GeoJSON CONTRACT in the project docs).
+without running the real OSM/Statbel pipeline. The committed
+`backend/data/*.geojson` is REAL data, so this script is a convenience only; it
+writes to `backend/data/sample.geojson` by default (override with --out) and
+will NOT clobber a real city file.
+
+DRY / single-source-of-truth: the scoring math is NOT reimplemented here. The
+per-type opportunity formulas come from `formulas.FORMULA_REGISTRY`, the
+within-type percentile ranking from `compute._percentile_within_type`, and the
+driver/gap normalisation from `compute._minmax_norm` / `compute._gap_norm`, so
+the sample and the real pipeline can never silently drift apart. The
+neighbour-aware noise/viability gate also matches `compute.compute()` exactly.
 
 Honest framing reminder for downstream copy: traffic is a PROXY (signals, not
-guarantees) and vegan_coverage reflects the diet:vegan tag, which undercounts
-reality. The numbers here are plausible but invented.
+guarantees) and the diet coverages reflect the documented diet:* tags, which
+undercount reality. The numbers here are plausible but invented.
 
-Standard library only.
+Run:  python pipeline/make_sample.py [--out backend/data/sample.geojson]
 """
 
+import argparse
 import json
 import math
+import os
 import random
+
+import pandas as pd
+
+import compute
+import config
+from formulas import FORMULA_REGISTRY
 
 # --- Bounding box around Antwerp (EPSG:4326) ---------------------------------
 LON_MIN, LON_MAX = 4.36, 4.47
 LAT_MIN, LAT_MAX = 51.17, 51.25
 
-# Hex geometry. Pointy-top hexagons with a circumradius of ~0.006 deg.
+# Hex geometry. Pointy-top hexagons with a circumradius of ~0.007 deg.
 # For a pointy-top hex with circumradius R:
 #   width  = sqrt(3) * R      (flat side to flat side, horizontal)
 #   height = 2 * R            (vertex to vertex, vertical)
@@ -36,6 +54,10 @@ HEX_R = 0.007
 LAT_MID = (LAT_MIN + LAT_MAX) / 2.0
 M_PER_DEG_LAT = 111_320.0
 M_PER_DEG_LON = 111_320.0 * math.cos(math.radians(LAT_MID))
+
+# Default output: a NON-city filename so a stray run never clobbers the real,
+# committed backend/data/<city>.geojson the backend serves.
+DEFAULT_OUT = os.path.join(config.REPO_ROOT, "backend", "data", "sample.geojson")
 
 
 def hex_vertices(cx, cy, r):
@@ -94,7 +116,8 @@ def neighbors_within(centers, idx, radius):
     """Indices of cells whose centers lie within `radius` degrees of cell idx.
 
     Includes the cell itself. Used to aggregate gastro/retail points across a
-    hex and its ring of neighbors for the traffic proxy and competitor counts.
+    hex and its ring of neighbors for the traffic proxy and competitor counts,
+    and to build the neighbour-aware n_food_area used by the noise gate.
     """
     cx, cy = centers[idx]
     out = []
@@ -104,63 +127,7 @@ def neighbors_within(centers, idx, radius):
     return out
 
 
-def minmax_norm(values):
-    """Min-max normalize a list to 0..1. Constant lists map to 0.0."""
-    lo = min(values)
-    hi = max(values)
-    span = hi - lo
-    if span == 0:
-        return [0.0 for _ in values]
-    return [(v - lo) / span for v in values]
-
-
-def percentile_ranks(pairs):
-    """Percentile rank (0..1) of each raw score WITHIN a type.
-
-    `pairs` is a list of (index, raw) for the cells that qualify (n_food >= 3).
-    This MUST match pipeline/compute.py `_percentile_within_type` exactly so the
-    synthetic sample and the real pipeline agree:
-      * average-rank percentile (tied values share the average rank), giving a
-        value in (0, 1] = rank / n;
-      * then a min-max rescale so the minimum maps to 0 and the maximum to 1
-        (an all-equal set rescales to all 0.0);
-      * a single qualifying cell returns 1.0 (NOT 0.0).
-    Returns {index: rank}.
-    """
-    n = len(pairs)
-    ranks = {}
-    if n == 0:
-        return ranks
-    if n == 1:
-        ranks[pairs[0][0]] = 1.0
-        return ranks
-
-    # Average-rank percentile in (0, 1]: for each distinct value, the average of
-    # the 1-based ordinal positions it occupies, divided by n (matches pandas
-    # rank(method="average", pct=True)).
-    raws = sorted(r for _, r in pairs)
-    avg_rank = {}
-    i = 0
-    while i < n:
-        j = i
-        while j < n and raws[j] == raws[i]:
-            j += 1
-        # positions i+1 .. j (1-based) share this value; their average rank.
-        mean_pos = (i + 1 + j) / 2.0
-        avg_rank[raws[i]] = mean_pos
-        i = j
-    pct = {idx: avg_rank[raw] / n for idx, raw in pairs}
-
-    # Min-max rescale so min -> 0 and max -> 1 (all-equal -> all 0.0).
-    lo = min(pct.values())
-    hi = max(pct.values())
-    span = hi - lo
-    for idx in pct:
-        ranks[idx] = (pct[idx] - lo) / span if span > 0 else 0.0
-    return ranks
-
-
-def main():
+def main(out_path=DEFAULT_OUT):
     random.seed(42)
 
     centers = build_centers()
@@ -181,8 +148,13 @@ def main():
         residential = round(random.uniform(200, 6000) * (1.3 - 0.6 * centrality), 1)
         income = round(random.uniform(16000, 34000), 1)
 
-        # Food establishments in the hex (small integers); some below the
-        # noise threshold of 3 so their opportunity scores become null.
+        # A few cells get 0 residents to exercise the viability gate (an
+        # uninhabitable river/port/infra sector: no residents AND no food).
+        if random.random() < 0.08:
+            residential = 0.0
+
+        # Food establishments in the hex (small integers); some are 0 so the
+        # neighbour-aware noise gate is exercised.
         n_food = random.choices(
             population=[0, 1, 2, 3, 4, 5, 6, 8, 11, 15],
             weights=[10, 12, 12, 11, 10, 9, 8, 7, 6, 5],
@@ -190,12 +162,18 @@ def main():
         )[0]
         n_food = int(round(n_food * (0.4 + 0.9 * centrality)))
 
-        # Vegan coverage: skewed low, plenty of zeros (the tag undercounts).
-        if random.random() < 0.35:
-            vegan = 0.0
-        else:
-            # Beta-ish skew toward 0 via min of two uniforms.
-            vegan = round(min(random.random(), random.random()) * 0.45, 4)
+        # Per-diet documented coverage seeds. Each diet:* tag undercounts
+        # reality, so coverage is skewed low with plenty of zeros. Vegetarian
+        # is the best-documented lens; halal/gluten-free the sparsest.
+        def diet_seed(p_zero, scale):
+            if random.random() < p_zero:
+                return 0.0
+            return round(min(random.random(), random.random()) * scale, 4)
+
+        vegan = diet_seed(0.35, 0.45)
+        vegetarian = diet_seed(0.25, 0.60)
+        glutenfree = diet_seed(0.55, 0.35)
+        halal = diet_seed(0.50, 0.40)
 
         # Per-cell point weight used to build the honest traffic proxy: a blend
         # of gastronomy + retail intensity. Scaled by centrality.
@@ -216,6 +194,9 @@ def main():
             "income": income,
             "n_food": n_food,
             "vegan": vegan,
+            "vegetarian": vegetarian,
+            "glutenfree": glutenfree,
+            "halal": halal,
             "point_weight": point_weight,
             "comp_cafe_self": comp_cafe_self,
             "comp_bakery_self": comp_bakery_self,
@@ -253,6 +234,11 @@ def main():
     income = [raw[i]["income"] for i in range(n)]
     n_food = [raw[i]["n_food"] for i in range(n)]
 
+    # Neighbour-aware food count (sector + touching neighbours) = the noise-gate
+    # basis, mirroring build_grid's n_food_area. n_food (per cell) stays the
+    # displayed value; n_food_area is gating-only and never written out.
+    n_food_area = [sum(n_food[j] for j in neigh[i]) for i in range(n)]
+
     # --- Gaps: meters to nearest establishment of each type -------------------
     # Cells that contain >=1 competitor of a type are "occupied"; gap is the
     # haversine distance from this cell center to the nearest occupied cell
@@ -280,51 +266,62 @@ def main():
     gap_bakery = gaps_for("comp_bakery_self")
     gap_confectionery = gaps_for("comp_conf_self")
 
-    # --- Normalized drivers (min-max across all hexes) ------------------------
-    traffic_norm = minmax_norm(traffic)
-    transit_norm = minmax_norm(transit)
-    residential_norm = minmax_norm(residential)
-    income_norm = minmax_norm(income)
+    # --- Normalized drivers + gaps (reuse compute's helpers, no parallel copy)-
+    traffic_norm = compute._minmax_norm(pd.Series(traffic)).tolist()
+    transit_norm = compute._minmax_norm(pd.Series(transit)).tolist()
+    residential_norm = compute._minmax_norm(pd.Series(residential)).tolist()
+    income_norm = compute._minmax_norm(pd.Series(income)).tolist()
 
-    # gap_norm_<type>: bigger gap maps closer to 1.
-    gap_norm_cafe = minmax_norm(gap_cafe)
-    gap_norm_bakery = minmax_norm(gap_bakery)
-    gap_norm_confectionery = minmax_norm(gap_confectionery)
+    # gap_norm_<type>: bigger gap maps closer to 1 (compute._gap_norm).
+    gap_norm_cafe = compute._gap_norm(pd.Series(gap_cafe)).tolist()
+    gap_norm_bakery = compute._gap_norm(pd.Series(gap_bakery)).tolist()
+    gap_norm_confectionery = compute._gap_norm(pd.Series(gap_confectionery)).tolist()
 
-    # --- Per-type raw opportunity formulas ------------------------------------
-    # Each type uses DIFFERENT inputs; they are intentionally not collapsed.
-    raw_cafe = []
-    raw_bakery = []
-    raw_conf = []
+    # --- Per-type RAW opportunity via the SHARED formula registry -------------
+    # Build the row each formula expects (the *_norm drivers, comp_<type>, and
+    # gap_norm_bakery) and apply FORMULA_REGISTRY[t]. No formula math lives here.
+    rows = []
     for i in range(n):
-        # cafe: destination, daytime traffic.
-        rc = ((traffic_norm[i] + 0.5 * transit_norm[i]) * income_norm[i]
-              / (1 + comp_cafe[i]))
-        # bakery: convenience; traffic/offices intentionally NOT used.
-        rb = (residential_norm[i] * gap_norm_bakery[i]
-              * (0.5 + 0.5 * income_norm[i]) / (1 + comp_bakery[i]))
-        # confectionery: discretionary, light destination.
-        rf = (income_norm[i] * (0.6 * traffic_norm[i] + 0.4 * residential_norm[i])
-              / (1 + comp_confectionery[i]))
-        raw_cafe.append(rc)
-        raw_bakery.append(rb)
-        raw_conf.append(rf)
+        rows.append({
+            "traffic_norm": traffic_norm[i],
+            "transit_norm": transit_norm[i],
+            "residential_norm": residential_norm[i],
+            "income_norm": income_norm[i],
+            "comp_cafe": comp_cafe[i],
+            "comp_bakery": comp_bakery[i],
+            "comp_confectionery": comp_confectionery[i],
+            "gap_norm_cafe": gap_norm_cafe[i],
+            "gap_norm_bakery": gap_norm_bakery[i],
+            "gap_norm_confectionery": gap_norm_confectionery[i],
+        })
 
-    # --- Percentile rank WITHIN type, only for n_food >= 3 (else null) --------
-    def opp_for(raw_scores):
-        pairs = [(i, raw_scores[i]) for i in range(n) if n_food[i] >= 3]
-        ranks = percentile_ranks(pairs)
-        out = []
-        for i in range(n):
-            if n_food[i] < 3:
-                out.append(None)
-            else:
-                out.append(round(ranks[i], 4))
-        return out
+    # --- Noise + viability gate (IDENTICAL to compute.compute()) --------------
+    # Scored ONLY IF: n_food_area >= NOISE_MIN_FOOD (neighbour-aware activity)
+    # AND (residential > 0 OR n_food > 0) (viable: people live there or it
+    # already hosts establishments). Non-scorable cells are NaN -> JSON null.
+    viable = [(residential[i] > 0) or (n_food[i] > 0) for i in range(n)]
+    mask_keep = [
+        (n_food_area[i] >= config.NOISE_MIN_FOOD) and viable[i]
+        for i in range(n)
+    ]
 
-    opp_cafe = opp_for(raw_cafe)
-    opp_bakery = opp_for(raw_bakery)
-    opp_confectionery = opp_for(raw_conf)
+    opp = {}
+    for t in config.TYPES:
+        formula = FORMULA_REGISTRY[t]
+        raw_scores = [
+            formula(rows[i]) if mask_keep[i] else float("nan")
+            for i in range(n)
+        ]
+        # Reuse compute's within-type percentile rank (NaN rows stay NaN/null).
+        ranked = compute._percentile_within_type(pd.Series(raw_scores))
+        opp[t] = [
+            None if pd.isna(v) else round(float(v), 4)
+            for v in ranked
+        ]
+
+    opp_cafe = opp["cafe"]
+    opp_bakery = opp["bakery"]
+    opp_confectionery = opp["confectionery"]
 
     # --- Assemble GeoJSON FeatureCollection -----------------------------------
     features = []
@@ -352,6 +349,9 @@ def main():
             "opp_bakery": opp_bakery[i],
             "opp_confectionery": opp_confectionery[i],
             "vegan_coverage": round(raw[i]["vegan"], 4),
+            "vegetarian_coverage": round(raw[i]["vegetarian"], 4),
+            "glutenfree_coverage": round(raw[i]["glutenfree"], 4),
+            "halal_coverage": round(raw[i]["halal"], 4),
         }
         feature = {
             "type": "Feature",
@@ -368,21 +368,31 @@ def main():
         "features": features,
     }
 
-    import os
-    out_dir = os.path.join("backend", "data")
-    os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, "antwerpen.geojson")
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(fc, f, indent=2)
 
     # Brief console summary (this script is run manually, not imported).
     veg = [raw[i]["vegan"] for i in range(n)]
+    n_scored = {t: sum(1 for v in opp[t] if v is not None) for t in config.TYPES}
     print("Wrote %d features to %s" % (len(features), out_path))
     print("vegan_coverage mean=%.4f  zeros=%d/%d"
           % (sum(veg) / len(veg), sum(1 for v in veg if v == 0.0), n))
-    print("cells with n_food<3 (opp_* null)=%d/%d"
-          % (sum(1 for x in n_food if x < 3), n))
+    print("sectors with scores per type: %s" % n_scored)
+    print("cells gated out (no score) = %d/%d"
+          % (sum(1 for k in mask_keep if not k), n))
+
+
+def _parse_args():
+    p = argparse.ArgumentParser(description="Generate a SpotFinder sample GeoJSON.")
+    p.add_argument(
+        "--out", default=DEFAULT_OUT,
+        help="output path (default: backend/data/sample.geojson; "
+             "must not be a real city file)",
+    )
+    return p.parse_args()
 
 
 if __name__ == "__main__":
-    main()
+    args = _parse_args()
+    main(out_path=args.out)

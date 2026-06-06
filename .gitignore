@@ -56,3 +56,6 @@ pipeline/*.parquet
 # backend/data/antwerpen.geojson is committed (currently a synthetic sample)
 # so the deployed backend always has something to serve.
 !backend/data/antwerpen.geojson
+
+# Playwright MCP artifacts
+.playwright-mcp/

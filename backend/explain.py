@@ -317,10 +317,10 @@ async def build_ai_explanation(type_: str, lens, props: dict) -> str:
         resp = await client.post(url, json=payload, headers=headers)
 
     if resp.status_code != 200:
-        # 429 RESOURCE_EXHAUSTED and any other non-200 surface here.
-        raise RuntimeError(
-            f"Gemini returned HTTP {resp.status_code}: {resp.text[:200]}"
-        )
+        # 429 RESOURCE_EXHAUSTED and any other non-200 surface here. Log only the
+        # status code with a short static message — never the upstream response
+        # body, which can leak request echoes / key hints into our logs.
+        raise RuntimeError(f"Gemini returned non-200 status {resp.status_code}")
 
     data = resp.json()
     candidates = data.get("candidates") or []

@@ -101,11 +101,25 @@ export async function getPoints(city) {
  * @returns {Promise<{cities: Array<{slug:string,name:string,center:number[],zoom:number}>, default: string}>}
  */
 export async function getCities() {
-  const res = await fetch(`${BASE_URL}/api/cities`, {
-    headers: { Accept: 'application/json' },
-  });
-  if (!res.ok) throw new Error(`Failed to load cities (HTTP ${res.status})`);
-  return res.json();
+  const controller = new AbortController();
+  // Generous timeout to survive a cold start (matches getSpots/getPoints).
+  const timeout = setTimeout(() => controller.abort(), 90000);
+
+  try {
+    const res = await fetch(`${BASE_URL}/api/cities`, {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`Failed to load cities (HTTP ${res.status})`);
+    return await res.json();
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error('The backend took too long to respond (it may be waking up). Please retry.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /**

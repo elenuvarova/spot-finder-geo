@@ -11,7 +11,7 @@ Responsibilities:
     catch only ~2/281 cafes, so the cafe count is an UPPER BOUND (see config).
   * Derive a flag per diet LENS (vegan / vegetarian / gluten-free / halal)
     from its documented diet:* tag only (value in {yes, only}); cuisine=* is
-    deliberately NOT used. The legacy "vegan" field mirrors diet_vegan.
+    deliberately NOT used.
   * Emit a single cleaned point layer with stable, typed columns.
 
 Run:  python pipeline/clean.py
@@ -137,8 +137,6 @@ def clean():
             slug: (_diet_flag(tags, lens) if is_eatery else False)
             for slug, lens in config.DIET_LENSES.items()
         }
-        # Back-compat: the legacy "vegan" field mirrors the vegan lens.
-        vegan = diet_flags["vegan"]
 
         # Deduplicate on coarse location + role signature.
         key = (round(lon, 6), round(lat, 6), spot_type, tuple(sorted(roles)))
@@ -167,7 +165,6 @@ def clean():
             "diet_vegetarian": bool(diet_flags["vegetarian"]),
             "diet_glutenfree": bool(diet_flags["glutenfree"]),
             "diet_halal": bool(diet_flags["halal"]),
-            "vegan": bool(vegan),                   # back-compat: == diet_vegan
             "name": tags.get("name"),
         }
         features_out.append({

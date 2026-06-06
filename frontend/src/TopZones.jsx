@@ -28,6 +28,8 @@ export default function TopZones({
   lens,
   blend,
   selectedId,
+  compareFull = false,
+  compareLimit = 3,
   onSelect,
   onFocus,
   onCompareAdd,
@@ -93,7 +95,9 @@ export default function TopZones({
             const pct = Math.max(0, Math.min(100, (score / maxScore) * 100));
             const select = () => {
               onSelect(props);
-              onFocus(centroid(feature.geometry));
+              // centroid() returns null for empty geometry — don't fly nowhere.
+              const c = centroid(feature.geometry);
+              if (c) onFocus(c);
             };
             return (
               <li
@@ -131,12 +135,19 @@ export default function TopZones({
                 <button
                   type="button"
                   className="top-zones__cmp"
+                  disabled={compareFull}
+                  aria-label={
+                    compareFull
+                      ? `Compare is full (${compareLimit} max)`
+                      : `Add sector ${props.unit_id ?? ''} to compare`
+                  }
+                  title={compareFull ? `Compare is full (${compareLimit} max)` : undefined}
                   onClick={(e) => {
                     e.stopPropagation();
                     onCompareAdd(props);
                   }}
                 >
-                  + compare
+                  {compareFull ? `${compareLimit} max` : '+ compare'}
                 </button>
               </li>
             );

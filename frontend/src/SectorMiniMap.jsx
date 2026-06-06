@@ -3,6 +3,14 @@
 // have. Shown in the panel and in print.
 
 import { bounds } from './geometry.js';
+import {
+  MINIMAP_SECTOR_FILL,
+  MINIMAP_SECTOR_STROKE,
+  MINIMAP_SELECTED_FILL,
+  MINIMAP_SELECTED_STROKE,
+  MINIMAP_EATERY_DOT,
+  MINIMAP_NON_EATERY_DOT,
+} from './colors.js';
 
 const VIEW_W = 200; // viewBox units; height derives from the data aspect ratio.
 const PAD = 6; // padding inside the viewBox, in the same units.
@@ -87,8 +95,8 @@ export default function SectorMiniMap({ features, selectedId, points }) {
             <path
               key={(f.properties && f.properties.unit_id) || `f-${i}`}
               d={d}
-              fill="#eef1f3"
-              stroke="#cbd2d9"
+              fill={MINIMAP_SECTOR_FILL}
+              stroke={MINIMAP_SECTOR_STROKE}
               strokeWidth="0.5"
             />
           );
@@ -99,8 +107,8 @@ export default function SectorMiniMap({ features, selectedId, points }) {
             overrides this to a light-grey wash, so paper stays readable.) */}
         <path
           d={featurePath(selected)}
-          fill="rgba(26,127,86,0.85)"
-          stroke="#0f5c3d"
+          fill={MINIMAP_SELECTED_FILL}
+          stroke={MINIMAP_SELECTED_STROKE}
           strokeWidth="1.5"
         />
 
@@ -115,7 +123,7 @@ export default function SectorMiniMap({ features, selectedId, points }) {
               cx={x.toFixed(2)}
               cy={y.toFixed(2)}
               r="2"
-              fill={isEatery ? '#0f5c3d' : '#52606d'}
+              fill={isEatery ? MINIMAP_EATERY_DOT : MINIMAP_NON_EATERY_DOT}
             />
           );
         })}

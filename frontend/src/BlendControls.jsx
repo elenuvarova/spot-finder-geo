@@ -117,6 +117,7 @@ export default function BlendControls({ blend, onChange }) {
                   max="100"
                   value={value}
                   aria-label={d.label}
+                  aria-valuetext={`${value} of 100`}
                   onChange={(e) => handleSlider(d.key, e.target.value)}
                 />
                 <span className="blend__slider-value" aria-hidden="true">

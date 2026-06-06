@@ -16,3 +16,7 @@ services:
         sync: false
       - key: GEMINI_MODEL
         value: gemini-2.5-flash-lite
+      # Lock CORS to the deployed origin. The UI and API share this host, so CORS
+      # is mostly moot in prod, but this replaces the default-open "*" posture.
+      - key: FRONTEND_ORIGIN
+        value: https://foodspotter.ontwrpn.com

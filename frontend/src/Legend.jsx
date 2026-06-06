@@ -2,8 +2,9 @@
 
 import { TYPE_LABELS } from './explainer.js';
 import { getLens } from './lenses.js';
+import { rampCssGradient, NO_DATA_COLOR } from './colors.js';
 
-export default function Legend({ type, lens }) {
+export default function Legend({ type, lens, hasSelection }) {
   const label = TYPE_LABELS[type] || 'spot';
   const lensMeta = getLens(lens);
 
@@ -18,7 +19,8 @@ export default function Legend({ type, lens }) {
       </div>
 
       <div className="legend__scale" aria-hidden="true">
-        <span className="legend__bar" />
+        {/* Gradient comes from colors.js so the bar and the map ramp can't drift. */}
+        <span className="legend__bar" style={{ background: rampCssGradient('90deg') }} />
       </div>
       <div className="legend__ticks">
         <span>Low</span>
@@ -27,9 +29,18 @@ export default function Legend({ type, lens }) {
       </div>
 
       <div className="legend__nodata">
-        <span className="legend__nodata-swatch" aria-hidden="true" />
+        <span
+          className="legend__nodata-swatch"
+          style={{ background: NO_DATA_COLOR }}
+          aria-hidden="true"
+        />
         Too few establishments to score (greyed out)
       </div>
+
+      {/* First-run discoverability nudge: shown until the user inspects a zone. */}
+      {!hasSelection && (
+        <p className="legend__hint">Click a zone on the map to inspect it.</p>
+      )}
 
       <p className="legend__footnote">
         Traffic is a <strong>proxy</strong>; <code>diet:*</code> tags undercount.
