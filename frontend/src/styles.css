@@ -1239,12 +1239,14 @@ body {
     gap: var(--space-sm);
   }
 
-  /* The full-width brand bar (top:12 + ~48 tall) sits over the top-right corner,
-     so the default MapLibre zoom control was hidden behind it. Drop it below the
-     bar so +/- stay tappable. When the Filters drawer is open it sits behind the
-     drawer (z-index 5), which is fine — zoom isn't needed mid-filter. */
+  /* The full-width brand bar reaches ~76px down the screen, so the default
+     top-right zoom control was first hidden behind it, then still grazing it.
+     Clear it with room to spare (MapLibre adds a 10px inner margin, so the
+     group lands ~14px below the bar). When the Filters drawer is open the
+     control sits behind it (z-index 5), which is fine — zoom isn't needed
+     mid-filter. */
   .maplibregl-ctrl-top-right {
-    top: 64px;
+    top: 80px;
   }
 
   /* Comfortable touch targets for the zoom buttons on phones. */
