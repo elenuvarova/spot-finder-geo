@@ -442,6 +442,38 @@ body {
   outline-offset: 2px;
 }
 
+/* MapLibre zoom control — restyle from the library defaults (grey ring shadow,
+   4px corners) onto our card tokens so it sits flush with the rest of the UI and
+   the two buttons read as one clean, evenly-divided stack. */
+.maplibregl-ctrl-group {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden; /* clip the square buttons to the rounded corners */
+}
+
+.maplibregl-ctrl-group button {
+  width: 32px;
+  height: 32px;
+  background: var(--surface);
+}
+
+/* Exactly one divider between the stacked buttons, on our line token (overrides
+   MapLibre's #ddd) so they never look doubled or crowded. */
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--line);
+}
+
+.maplibregl-ctrl-group button:hover {
+  background: var(--accent-tint);
+}
+
+.maplibregl-ctrl-group button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 /* iOS auto-zooms when a focused form control's font-size is < 16px. The viewport
    meta no longer blocks pinch-zoom (WCAG 1.4.4), so prevent the focus-zoom here
    instead by floor-ing real form controls to 16px. Visual size is unchanged on
